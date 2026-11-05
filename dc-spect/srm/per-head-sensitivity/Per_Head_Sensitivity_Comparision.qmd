@@ -1,0 +1,109 @@
+---
+title: "Per Head Sensitivity Comparision"
+author: "Fang Han"
+date: today
+format: 
+    typst:
+        toc: true
+        section-numbering: 1.1.a
+        # columns: 2
+    html:
+      toc: true
+      toc-expand: false
+      lightbox: true
+      theme:
+      - default
+      - styles.scss
+---
+{{< pagebreak >}}
+
+## Compare the Per Head Sensitivity Map Between Low Counts and Higher Counts Simulation
+
+```{r}
+#| results: asis
+#| echo: false
+
+for (i in 1:80) {
+  cat(sprintf("### Dectcor Head %d Comparison\n\n", i))
+  # 1. Start the layout div and assign the MAIN figure ID
+  cat(sprintf("::: {#fig-pair-%d layout-ncol=2}\n\n", i))
+  
+  # 2. Print Image A with its sub-caption and SUB-ID (a)
+  cat(sprintf("![Detector Head %d, High MC Simulation Counts](figs/1_25_tri_counts/high_stats_sensitivity_map_z_stacked_srm_head_%d.png){#fig-pair-%da}\n\n", i, i, i))
+  
+  # 3. Print Image B with its sub-caption and SUB-ID (b)
+  cat(sprintf("![Detector Head %d, Low MC Simulation Counts](figs/low_counts_1_mm_box/z_stacked_srm_head_%d.png){#fig-pair-%db}\n\n", i, i, i))
+  
+  # 4. Print the main overarching caption for the pair
+  cat(sprintf("Comparing Detector Head %d.\n\n", i))
+  
+  # 5. Close the layout div
+  cat(":::\n\n")
+}
+```
+
+## Linear Equation Method for Finding the Unexpected Pixels
+
+We use the following form of the linear boundary for easier calculation:
+$$
+a x + b y = c
+$$
+
+For any point in the region above the line, it satisfies:
+$$
+ax+by>c
+$$
+and for points in the region below the line:
+$$
+ax+by<c
+$$
+
+for a line passing through $(x_1,y_1)$ and $(x_2, y_2)$, we have the line equation:
+$$
+y-y_1 = \frac{y_2-y_1}{x_2-x_1}(x-x_1)
+$$
+thus,
+$$
+\begin{aligned}
+a &= y_2-y_1 \\
+b &= x_1-x_2 \\
+c &= (x_1-x_2) \cdot y_1 + (y_2-y_1) \cdot x_1 = x_1 y_2 - x_2 y_1
+\end{aligned}
+$$
+
+## Sensitivity Map and Scanner Geometry
+
+![Head 47 and Geometry](figs/geometry_head_47_sens_map.png)
+
+### Outliers on Sensitivity Map
+
+```{=html}
+<div style="border: 1px solid #ccc; padding: 10px;">
+  <span>Outliers with 1 mm box</span>
+  <iframe src="dc_spect_outliers.html" width="100%" height="500px" style="border:none;"></iframe>
+</div>
+```
+
+## Low Counts Simulation Comparision of 1 mm tungsten box vs 2 mm tungsten box
+```{r}
+#| results: asis
+#| echo: false
+
+for (i in 1:80) {
+  cat(sprintf("### Dectcor Head %d\n\n", i))
+  # 1. Start the layout div and assign the MAIN figure ID
+  cat(sprintf("::: {#fig-sensitivity-shielding-box-%d layout-ncol=2}\n\n", i))
+  
+  # 2. Print Image A with its sub-caption and SUB-ID (a)
+  cat(sprintf("![Detector Head %d, 1 mm Shielding Box](figs/box_1_mm/head_%d_sensitivity.png){#fig-sensitivity-shielding-box-%da}\n\n", i, i, i))
+  
+  # 3. Print Image B with its sub-caption and SUB-ID (b)
+  cat(sprintf("![Detector Head %d, 2 mm Shielding Box](figs/box_2_mm/head_%d_sensitivity.png){#fig-sensitivity-shielding-box-%db}\n\n", i, i, i))
+  
+  # 4. Print the main overarching caption for the pair
+  cat(sprintf("Comparing Detector Head %d.\n\n", i))
+  
+  # 5. Close the layout div
+  cat(":::\n\n")
+}
+```

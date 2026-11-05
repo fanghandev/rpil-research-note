@@ -1,0 +1,192 @@
+[0G[2K[J[0G[2K[J[0G[2K[J[0G[2K[J[0G[2K[J[0G[2K[J
+Starting python3 kernel...Done
+
+Executing 'slides.quarto_ipynb_1'
+  Cell 1/9: ''...Done
+  Cell 2/9: ''...Done
+  Cell 3/9: ''...Done
+  Cell 4/9: ''...Done
+  Cell 5/9: ''...Done
+  Cell 6/9: ''...Done
+  Cell 7/9: ''...Done
+  Cell 8/9: ''...Done
+  Cell 9/9: ''...Done
+
+[1mpandoc [22m
+  to: revealjs
+  output-file: slides.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: 'Brain SPECT phantom reconstruction: corrections and SRM voxel size'
+  subtitle: Small Jaszczak, 15 mCi Tc-99m, 15 min, GATE 10 simulation · MLEM with the Gate system matrix (SRM)
+  author: Fang Han
+  date: '2026-10-14'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  
+Output created: slides.html
+
+[32mWatching files for changes[39m
+[32mBrowse at [39m[4m[32mhttp://localhost:4200/slides.html[39m[24m
+Listening on http://127.0.0.1:4200/
+
+Starting python3 kernel...Done
+
+Executing 'slides.quarto_ipynb_1'
+  Cell 1/9: ''...Done
+
+
+SyntaxError: unmatched '}' (<string>, line 1)
+[33mWARN: Error encountered when rendering files[39m
+
+Starting python3 kernel...Done
+
+Executing 'slides.quarto_ipynb_1'
+  Cell 1/9: ''...Done
+  Cell 2/9: ''...Done
+  Cell 3/9: ''...Done
+  Cell 4/9: ''...Done
+  Cell 5/9: ''...Done
+  Cell 6/9: ''...Done
+  Cell 7/9: ''...Done
+  Cell 8/9: ''...Done
+  Cell 9/9: ''...Done
+
+[1mpandoc [22m
+  to: revealjs
+  output-file: slides.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: 'Brain SPECT phantom reconstruction: corrections and SRM voxel size'
+  subtitle: Small Jaszczak, 15 mCi Tc-99m, 15 min, GATE 10 simulation · MLEM with the Gate system matrix (SRM)
+  author: Fang Han
+  date: '2026-10-14'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  
+Output created: slides.html
+
+[32mWatching files for changes[39m
+
+Starting python3 kernel...Done
+
+Executing 'slides.quarto_ipynb_1'
+  Cell 1/9: ''...Done
+  Cell 2/9: ''...Done
+  Cell 3/9: ''...Done
+  Cell 4/9: ''...Done
+  Cell 5/9: ''...Done
+  Cell 6/9: ''...Done
+  Cell 7/9: ''...Done
+  Cell 8/9: ''...Done
+  Cell 9/9: ''...Done
+
+[1mpandoc [22m
+  to: revealjs
+  output-file: slides.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: 'Brain SPECT phantom reconstruction: corrections and SRM voxel size'
+  subtitle: Small Jaszczak, 15 mCi Tc-99m, 15 min, GATE 10 simulation · MLEM with the Gate system matrix (SRM)
+  author: Fang Han
+  date: '2026-10-14'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  
+Output created: slides.html
+
+[32mWatching files for changes[39m
+[31mGET: / (404: Not Found)[39m

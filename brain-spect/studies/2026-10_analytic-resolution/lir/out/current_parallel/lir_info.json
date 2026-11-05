@@ -1,0 +1,109 @@
+{
+ "case": "current_parallel",
+ "lambda_max": 1.6420319935492892e-05,
+ "nnz": 574798977,
+ "n_voxels": 904960,
+ "fov_mm": 120.0,
+ "rel_threshold": 0.0001,
+ "dropped_share_mean": 0.00025875089386698783,
+ "runs": [
+  {
+   "radius_mm": 0,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 48,
+   "seconds": 0.9226181507110596
+  },
+  {
+   "radius_mm": 0,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 129,
+   "seconds": 2.4471211433410645
+  },
+  {
+   "radius_mm": 0,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 365,
+   "seconds": 6.889092206954956
+  },
+  {
+   "radius_mm": 30,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 48,
+   "seconds": 0.9224865436553955
+  },
+  {
+   "radius_mm": 30,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 131,
+   "seconds": 2.4847397804260254
+  },
+  {
+   "radius_mm": 30,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 373,
+   "seconds": 7.039897203445435
+  },
+  {
+   "radius_mm": 60,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 50,
+   "seconds": 0.9601588249206543
+  },
+  {
+   "radius_mm": 60,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 137,
+   "seconds": 2.5977394580841064
+  },
+  {
+   "radius_mm": 60,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 389,
+   "seconds": 7.340911865234375
+  },
+  {
+   "radius_mm": 80,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 50,
+   "seconds": 0.9600937366485596
+  },
+  {
+   "radius_mm": 80,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 139,
+   "seconds": 2.635279893875122
+  },
+  {
+   "radius_mm": 80,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 402,
+   "seconds": 7.586707592010498
+  },
+  {
+   "radius_mm": 95,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 49,
+   "seconds": 0.941267728805542
+  },
+  {
+   "radius_mm": 95,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 142,
+   "seconds": 2.6928563117980957
+  },
+  {
+   "radius_mm": 95,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 417,
+   "seconds": 7.868167877197266
+  }
+ ],
+ "wall_s": 184.12643456459045,
+ "He_column_sums": [
+  0.0006232147032433448,
+  0.000614202544523595,
+  0.0005919326677542784,
+  0.0005572175139092422,
+  0.0005029044243670995
+ ]
+}

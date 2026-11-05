@@ -1,0 +1,575 @@
+---
+title: "Brain SPECT: spatial resolution from line and Derenzo phantoms"
+subtitle: "Six resolution phantoms, 15 mCi Tc-99m, 15 min, GATE 10 · OSEM 8 with the 2 mm Gate system matrix, unscattered data, no support threshold"
+author: "Fang Han"
+date: 2026-10-20
+date-format: "D MMMM YYYY"
+filters:
+  - columns-typst.lua
+lightbox:
+  match: auto
+  effect: zoom
+  desc-position: bottom
+  loop: true
+execute:
+  echo: false
+  warning: false
+format:
+  revealjs:
+    width: 1600
+    height: 900
+    margin: 0.06
+    slide-number: true
+    navigation-mode: linear
+    theme: [default, keynote.scss]
+    html-math-method: mathjax
+    progress: true
+    controls: true
+    controls-layout: bottom-right
+    controls-tutorial: false
+    menu: true
+    center: false
+    embed-resources: true
+    css: slides.css
+    include-after-body: lightbox-slides.html
+    include-in-header: model-viewer.html
+---
+
+```{python}
+#| include: false
+import sys
+sys.path.insert(0, ".")
+from slides_data import *  # numbers from the analysis JSON files; figures are pre-rendered
+W75, WIN = "triple_line_75_water", "triple_line_inspira_water"
+A75, AIN = "triple_line_75_air", "triple_line_inspira_air"
+DW = "derenzo_brain_water"
+```
+
+## Summary
+
+- **Hot lines in a cold background shrink to the 2 mm voxel.** The fitted FWHM falls from ≈ 4 mm at 40 updates to ≈ 1 mm (the true line on the grid) by 1600–4000 updates, so a converged line width measures the grid, not the scanner
+- **The Derenzo gives a much coarser resolution than the lines.** At 8000 updates its channels are as separated as the true pattern blurred by a 4–6 mm Gaussian; the 5 mm channels are partly separated (V/P `{python} vp_pm(DW, "5", 8000)`, bootstrap SD), 4 mm barely (`{python} vp_pm(DW, "4", 8000)`), 3 mm not at all. With OSEM, resolution depends on the object, so a line FWHM must not be quoted as the resolution of extended activity
+- **Post-filter: 4 mm.** On the 2 mm grid a filter below 3 mm is not its nominal size (2 mm acts as `{python} f2(kernel(2))` mm, 1 mm does nothing); for the smallest channels that still separate (5 mm), a 4 mm filter gives the best peak-to-valley over voxel noise. The 8 mm filter of the last slides erases the 5 mm sector
+- **Attenuation correction is needed for the activity and for the last part of the resolution:** without AC the off-axis lines stop shrinking at 1.5–2.1 mm (with AC ≈ 1 mm), the activity drops to `{python} f2(line_recovery(W75, 0, 800, "osem8_noac"))`–`{python} f2(line_recovery(W75, 1, 800, "osem8_noac"))` of the truth in water, and the Derenzo's 5 mm sector stops separating. **Chang's correction after a reconstruction without AC** (the reference) gets the centre right but reads `{python} f2(line_recovery(W75, 1, 3200, "osem8_chang"))` and `{python} f2(line_recovery(W75, 2, 3200, "osem8_chang"))` × the truth for the two lines 75 mm off-axis in water, and restores none of the lost separation
+
+## What the slides covers
+
+- **Phantoms (new):** the six resolution phantoms of the OSPool campaign: triple lines (75 mm, NEMA layout; 50 mm, InSPira-HD style, after Stam et al., [EJNMMI Phys 5:4 (2018)](https://doi.org/10.1186/s40658-018-0203-1)) and a hot-rod Derenzo (3–8 mm channels), each in water and in air
+- **Reconstruction:** as in the unscattered-data slides (16 October), not repeated here: unscattered main-window counts only (tagged in the simulation), 2 mm Gate SRM, OSEM with 8 module subsets, uniform start, no support threshold, no scatter correction; with and without AC (ray-traced transmission per phantom), and **Chang's first-order correction** of the reconstruction without AC as a reference
+- **Questions:**
+  1. How many updates does resolution need? (the convergence test first)
+  2. What resolution do the lines and the Derenzo show, and do they agree?
+  3. Which post-filter, and is its size what it says?
+- **Error bars:** bootstrap, 20 copies (Derenzo) and 10 (lines), reconstructed on ERIS (gpu-l40s; identical to the workstation within 2 × 10⁻⁶)
+
+## The six phantoms
+
+| phantom | hot parts | medium | unscattered counts |
+|:--|:--|:--|--:|
+| triple line 75 mm, water | 3 lines, 1 mm, 160 mm long, at (0, 0), (75, 0), (0, 75) mm, glass capillaries | water, PMMA tank 174 mm inside | `{python} f1(counts(W75))` M |
+| triple line 75 mm, air | same | same tank, empty | `{python} f1(counts(A75))` M |
+| triple line 50 mm (InSPira), water | 3 lines, 0.8 mm, 140 mm long, at (0, 0), (50, 0), (0, 50) mm | water, PMMA tank 140 mm inside | `{python} f1(counts(WIN))` M |
+| triple line 50 mm (InSPira), air | same | same tank, empty | `{python} f1(counts(AIN))` M |
+| Derenzo, water | 149 channels 3–8 mm (one 60° sector each, centre spacing 2 × diameter), 80 mm long, 208 mL | PMMA block 150 mm in cold water (tank 168 mm inside) | `{python} f1(counts(DW))` M |
+| Derenzo, air | same | the bare PMMA block | `{python} f1(counts("derenzo_brain_air"))` M |
+
+- All centred at the system centre, upright, 15 mCi Tc-99m in the hot parts, 15 min
+- "Unscattered counts": main-window counts from photons that did not scatter in the phantom. The air phantoms give 2.4× more, because nothing absorbs them
+
+## Phantom: Triple line 75 mm (NEMA layout), water
+
+:::: {.columns}
+::: {.column width="42%"}
+```{python}
+#| output: asis
+print(scene_viewer("triple_line_75_water", "1 mm lines at (0, 0), (75, 0), (0, 75) mm in 174 mm of water. Left: drag to turn; right: exact sections, one scale on all six phantom slides", height=600))
+```
+:::
+::: {.column width="58%" .sections}
+![](img/sections_triple_line_75_water.svg){height=690px group="figs"}
+:::
+::::
+
+## Phantom: Triple line 75 mm, air
+
+:::: {.columns}
+::: {.column width="42%"}
+```{python}
+#| output: asis
+print(scene_viewer("triple_line_75_air", "the same lines and tank, empty", height=600))
+```
+:::
+::: {.column width="58%" .sections}
+![](img/sections_triple_line_75_air.svg){height=690px group="figs"}
+:::
+::::
+
+## Phantom: Triple line 50 mm (InSPira HD style), water
+
+:::: {.columns}
+::: {.column width="42%"}
+```{python}
+#| output: asis
+print(scene_viewer("triple_line_inspira_water", "0.8 mm lines at (0, 0), (50, 0), (0, 50) mm in 140 mm of water", height=600))
+```
+:::
+::: {.column width="58%" .sections}
+![](img/sections_triple_line_inspira_water.svg){height=690px group="figs"}
+:::
+::::
+
+::: aside
+Layout after the InSPira HD evaluation: Stam et al., [EJNMMI Phys 5:4 (2018)](https://doi.org/10.1186/s40658-018-0203-1); tank wall, height and ends assumed (the paper gives only the 14 cm diameter)
+:::
+
+## Phantom: Triple line 50 mm (InSPira HD style), air
+
+:::: {.columns}
+::: {.column width="42%"}
+```{python}
+#| output: asis
+print(scene_viewer("triple_line_inspira_air", "the same lines and tank, empty", height=600))
+```
+:::
+::: {.column width="58%" .sections}
+![](img/sections_triple_line_inspira_air.svg){height=690px group="figs"}
+:::
+::::
+
+::: aside
+Layout after the InSPira HD evaluation: Stam et al., [EJNMMI Phys 5:4 (2018)](https://doi.org/10.1186/s40658-018-0203-1); tank wall, height and ends assumed (the paper gives only the 14 cm diameter)
+:::
+
+## Phantom: Derenzo, water
+
+:::: {.columns}
+::: {.column width="42%"}
+```{python}
+#| output: asis
+print(scene_viewer("derenzo_brain_water", "149 hot channels, 3–8 mm, in a PMMA block in cold water", height=600))
+```
+:::
+::: {.column width="58%" .sections}
+![](img/sections_derenzo_brain_water.svg){height=690px group="figs"}
+:::
+::::
+
+## Phantom: Derenzo, air
+
+:::: {.columns}
+::: {.column width="42%"}
+```{python}
+#| output: asis
+print(scene_viewer("derenzo_brain_air", "the bare block, no tank", height=600))
+```
+:::
+::: {.column width="58%" .sections}
+![](img/sections_derenzo_brain_air.svg){height=690px group="figs"}
+:::
+::::
+
+# How resolution is measured
+
+## Line sources: where each width is measured
+
+![](img/illus_lines_regions.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- **Left:** the reconstruction averaged over z; boxes: the 25 × 25-voxel fit window around each true line; dashed circles: 10 mm radius, inside which the line's activity is summed (recovery); r and t: the radial (away from the axis) and tangential (around it) directions of the off-axis lines
+- **Right (side view):** each line is measured in 10 mm slabs (shaded) and over all of them together ("whole line"); the last 10 mm at each end are left out
+:::
+
+## Line FWHM: a 2D fit
+
+![](img/illus_fwhm_fit.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- **Model,** fitted to all 25 × 25 voxels of the window (z-averaged) at once: $\ \lambda_{ij} = b + A \cdot \bar g_x(i; x_0, \sigma_x)\,\bar g_y(j; y_0, \sigma_y)$, with $\bar g_x(i)$ a unit-area Gaussian averaged over voxel $i$ (what a perfect reconstruction stores), the same in y
+- **6 free parameters, fitted jointly:** $b$ background level · $A$ line activity per mm · $x_0, y_0$ line centre · $\sigma_x, \sigma_y$ widths (FWHM = 2.355 σ). Axis-aligned: no x–y correlation term
+- **Radial / tangential:** for the lines at (+r, 0) and (0, +r) these are the x and y widths (or swapped); for the centre line, x and y
+- **NEMA check:** the profile summed across an 11-voxel band (bars), FWHM from a parabola through the maximum and linear interpolation of the half-maximum on the flanks
+:::
+
+## Line FWHM: are the methods right on a 2 mm grid?
+
+:::: {.columns}
+::: {.column width="56%"}
+![](img/method_checks_fwhm.png){width=100% group="figs"}
+:::
+::: {.column width="44%"}
+- **Analytic test,** no reconstruction: Gaussian lines of known FWHM, voxel-averaged onto the 2 mm grid, at a voxel centre, ½ mm off, or on a voxel corner (x and y shifted together)
+- **The real lines** (voxel centres at odd mm): centre and 50 mm lines on voxel corners; 75 mm lines centred one way, on a voxel edge the other
+- **The fit** returns the true FWHM from 1 mm up at every position
+- **The NEMA interpolation** reads too wide below ≈ 6 mm, with a floor of `{python} f1(nema_floor("centre"))` mm (voxel centre) to `{python} f1(nema_floor("corner"))` mm (corner) set by the voxels
+- **So:** FWHM on the slides = the fit. The true 1 and 0.8 mm lines on the grid fit as 0.7–0.9 mm, the smallest width the grid can show
+:::
+::::
+
+## Derenzo: peaks, valleys and the regions behind them
+
+![](img/illus_derenzo_regions.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- **Image:** mean over z −30 … +30 mm (the middle 60 mm of the 80 mm channels), ÷ the true concentration $C$
+- **Peak $P$** of a sector: the image at each channel centre (bilinear), averaged over the sector's channels. **Valley $V$:** the same at the centre of every triangle of three neighbouring channels (the point furthest from all three; true activity 0)
+:::
+
+## Derenzo: what V/P means
+
+:::: {.columns}
+::: {.column width="55%"}
+![](img/derenzo_model.png){width=100% group="figs"}
+:::
+::: {.column width="45%"}
+$$\frac{V}{P}: \quad 0 = \text{channels fully separated},\quad \ge 1 = \text{not separated}$$
+
+- **Peak recovery** $P / C$; **sector recovery:** activity within 2 mm of the channels ÷ the true activity there
+- **V/P in mm (left):** the true channels blurred by a Gaussian of FWHM w, put on the 2 mm grid and measured the same way. Read back, a measured V/P gives the **equivalent FWHM**: the Gaussian blur that would separate the channels as well as the reconstruction does (inverted only below V/P = 0.9, where the curves are steep)
+- The truth on the 2 mm grid has V/P = 0 except the 3 mm sector (`{python} f2(MAIN.get(DW, {}).get("truth_grid", {}).get("3", {}).get("vp"))`)
+:::
+::::
+
+## Post-filter: is its size what it says?
+
+![](img/method_checks_filter.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- The 3D Gaussian post-filter (FWHM f, applied to the 2 mm voxels) on a single voxel (left) and on blurred test lines (right): how much width it really adds, from the second moment of the profile
+- **f ≥ 3 mm: as nominal** (within 1 %). **Below: not** — f = 2 mm adds `{python} f2(kernel(2))` mm, f = 1 mm adds nothing (its kernel is narrower than a voxel). Filters on this grid: 0 or ≥ 3 mm; tested here: 3, 4, 5, 6, 8 mm
+:::
+
+## Noise and peak-to-valley over noise
+
+- **Bootstrap** (as in the last slides): each copy redraws the measured counts over the detector pixels with replacement and is reconstructed like the data; the SD over the copies is the error bar of every number (20 copies, Derenzo; 10, lines)
+- **Voxel noise:** the channel cores (voxel centre within d/2 − 1 mm of a channel axis, z −30 … +30 mm, single 2 mm voxels, not averaged over z), where every voxel has the same true value. Noise = $\sqrt{\langle s_j^2\rangle} / \langle m_j\rangle$ over the core voxels ($m_j$, $s_j$: mean and SD of voxel $j$ over the copies)
+- **Peak-to-valley over noise:** $\ \mathrm{CNR} = (P - V) / \sqrt{\langle s_j^2\rangle}$: how far the separation of a sector stands above the noise of a single voxel
+- **Error bars are small:** V/P ± ≤ `{python} f3(max_vp_sd(DW))` (4–8 mm sectors, no filter), line FWHM ± ≤ `{python} f2(max_fwhm_sd([W75, A75, WIN, AIN]))` mm. They are left out of most plots, where they would be thinner than the lines
+
+# Convergence test: how many updates?
+
+## Lines: FWHM against updates, the first 800
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/lines_fwhm_vs_updates_osem8_ac_f0_x800.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- OSEM 8 + AC, no filter; solid: radial (centre line: x), dashed: tangential (y); dotted grey: the true lines on the grid. **Update:** one image update from one of the 8 subsets (8 per iteration)
+- Fast at first: ≈ 4 mm at 40 updates, ≈ 2.5 mm at 160, ≈ 1.5 mm at 400. Off-axis lines lag behind, more so radially and at 50 mm than at 75 mm
+:::
+::::
+
+## Lines: FWHM against updates, to 8000
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/lines_fwhm_vs_updates_osem8_ac_f0_x8000.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- Every line ends at 0.9–1.5 mm, close to the true line on the grid: below 1.5 mm (mean of the two directions) after `{python} n(updates_below(W75, 0, 1.5))` (centre) to `{python} n(updates_below(AIN, 2, 1.5))` updates (50 mm off-axis, air). From there on the width only measures the 2 mm voxel
+:::
+::::
+
+## Derenzo: V/P against updates
+
+![](img/derenzo_vp_derenzo_brain_water_osem8_ac.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- Far slower than the lines: without a filter V/P still falls at 8000 updates (5 mm: `{python} f2(vp(DW, "5", 3200))` at 3200, `{python} f2(vp(DW, "5", 8000))` at 8000); the 3 mm sector never separates, the 4 mm only begins to
+- With a 4 mm filter the curves flatten from about 3000 updates; the 8 mm filter stops the 5 mm sector at V/P ≈ 1
+:::
+
+## Convergence: decision
+
+- **Lines:** 1600–3200 updates bring every line to the grid limit; more changes nothing
+- **Derenzo:** still sharpening at 8000 updates without a filter, but mostly noise is added (next sections); with the 4 mm filter V/P changes slowly after ≈ 3200 updates (5 mm: `{python} f2(vp(DW, "5", 3200, 4))` → `{python} f2(vp(DW, "5", 8000, 4))` at 8000)
+- **Used for the results below:** the whole saved range (8 – 8000 updates) for the curves; **3200 updates (400 iterations, ≈ 80 s on the RTX 3080 Ti) as the reference point**, 8000 where noted
+- The bootstrap runs stop at 4000 updates for the lines and 8000 for the Derenzo
+
+# Line sources
+
+## 75 mm lines in water: the lines as they form
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/lines_zoom_triple_line_75_water_f0.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- 26 × 26 mm around each line; grey scale: share of the line's activity (within 10 mm) in each voxel, black ≥ 25 %; numbers: fitted FWHM radial / tangential (centre line x / y)
+- At 800 updates and beyond almost all of each line sits in one or two voxels; line 1 at x = 75 mm (a voxel centre) ends in one column, the lines at x or y = 0 (voxel edges) in two
+:::
+::::
+
+## 50 mm lines in water
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/lines_zoom_triple_line_inspira_water_f0.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- Same display. The 50 mm off-axis lines take longer than the 75 mm ones to collapse (radial `{python} f1(fwhm(WIN, 1, 800, which="radial"))` mm at 800 updates vs `{python} f1(fwhm(W75, 1, 800, which="radial"))` mm)
+:::
+::::
+
+## Line FWHM along the line
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/lines_fwhm_vs_z_f0.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- Fitted FWHM in each 10 mm slab, at 160 (faint) and 800 updates (markers). The width varies by ≈ 0.5 mm along the lines, and is smallest near the top (z > 40 mm), under the helmet's dome; at 800 updates the off-axis radial widths are the largest
+:::
+::::
+
+## Water vs air (both with AC)
+
+![](img/lines_water_over_air.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- FWHM in water ÷ FWHM in air at the same updates. **The centre lines agree within ≈ 5 %; the off-axis lines are 10–20 % narrower in water**
+- Likely cause: in water, views through long water paths are weak, so the nearer modules (larger magnification, better resolution) weigh more for an off-axis line. Not checked separately. The air data also have 2.4× the counts
+:::
+
+## Without AC
+
+![](img/lines_noac_over_ac.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- FWHM without AC ÷ with AC. Up to ≈ 800 updates within ≈ 15 % either way; then **without AC the off-axis lines stop shrinking**: at 8000 updates radially `{python} f2(fwhm(W75, 2, 8000, run="osem8_noac", which="radial"))` mm vs `{python} f2(fwhm(W75, 2, 8000, which="radial"))` mm with AC (75 mm), `{python} f2(fwhm(WIN, 2, 8000, run="osem8_noac", which="radial"))` vs `{python} f2(fwhm(WIN, 2, 8000, which="radial"))` mm (50 mm). The model without attenuation cannot fit the data exactly, so the reconstruction settles on a wider line
+- **The activity is what goes wrong:** the line activity is `{python} f2(line_recovery(W75, 0, 800, "osem8_noac"))` (centre), `{python} f2(line_recovery(W75, 1, 800, "osem8_noac"))` (75 mm) of the truth in water without AC, against `{python} f2(line_recovery(W75, 0, 800))`–`{python} f2(line_recovery(W75, 1, 800))` with AC; in air `{python} f2(line_recovery(A75, 0, 800, "osem8_noac"))`–`{python} f2(line_recovery(A75, 1, 800, "osem8_noac"))` (the PMMA tank and the glass capillaries still attenuate)
+:::
+
+## Chang's correction: the reference
+
+:::: {.columns}
+::: {.column width="55%"}
+![](img/chang_maps.png){width=100% group="figs"}
+
+Lowest (≈ 0.2) at the centre
+:::
+::: {.column width="45%"}
+- **Chang (1978), first order:** reconstruct without AC, then divide each voxel by its mean transmission
+$$c_j = \frac{\sum_m s_{mj}\,A_{mj}}{\sum_m s_{mj}}$$
+- $A_{mj}$: transmission from voxel $j$ to module $m$'s pinhole (the ray-traced factors also used for AC in the model); $s_{mj}$: module $m$'s air sensitivity to voxel $j$. Classic Chang averages over angles; here each module counts by how much it sees the voxel
+- **Exact only if** the no-AC image is "truth × $c$", e.g. every view of a voxel attenuated alike; not so in a head-sized water tank
+:::
+::::
+
+## Chang's correction, step by step
+
+![](img/chang_steps_triple_line_75_water.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+1. **Reconstruct without AC** (OSEM 8, the system matrix of the scanner in air). Each line comes out too weak, by how much its photons were attenuated: `{python} f2(line_recovery(W75, 0, 3200, "osem8_noac"))` (centre), `{python} f2(line_recovery(W75, 1, 3200, "osem8_noac"))` (+x), `{python} f2(line_recovery(W75, 2, 3200, "osem8_noac"))` (+y)
+2. **Compute c for every voxel** from the attenuation map (here the known phantom): the mean transmission to the detectors, ≈ 0.2 at the centre, 0.35–0.4 at the off-axis lines
+3. **Divide** image 1 by c. Right where 1 ≈ truth × c (centre: `{python} f2(line_recovery(W75, 0, 3200, "osem8_chang"))`); wrong where it is not (+x `{python} f2(line_recovery(W75, 1, 3200, "osem8_chang"))`, +y `{python} f2(line_recovery(W75, 2, 3200, "osem8_chang"))`). No reconstruction is repeated
+:::
+
+## Chang's correction for one voxel
+
+![](img/chang_voxel_triple_line_75_water.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- The voxel (★) of each off-axis 75 mm line, all 73 pinholes seen from above. Colour: $A_{mj}$, the fraction of the voxel's photons that cross the water to module $m$; size: the module's weight $s_{mj}/\sum_m s_{mj}$. $c_j$ = the weighted mean of the colours
+- A few near modules with clear paths carry most of the weight, so $c$ (0.36–0.39) is well above the plain mean (0.21–0.24). The two voxels have nearly the same $c$, yet the no-AC image recovers 0.49 of one line and 0.20 of the other (next slide)
+:::
+
+## Line activity: no AC, Chang, AC in the model
+
+![](img/lines_recovery_methods_3200.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- Activity within 10 mm of each line ÷ true, 3200 updates, no filter (it does not change after ≈ 100 updates)
+- **Chang** gets the centre lines right (`{python} f2(line_recovery(W75, 0, 3200, "osem8_chang"))`, `{python} f2(line_recovery(WIN, 0, 3200, "osem8_chang"))` in water) and everything in air within 3 %, but **the off-axis lines in water are off by −43 % to +23 %**, and differently for +x and +y at the same radius: the no-AC image is not truth × $c$ (it already reads `{python} f2(line_recovery(W75, 1, 3200, "osem8_noac"))` vs `{python} f2(line_recovery(W75, 2, 3200, "osem8_noac"))` for the two 75 mm lines, whose $c$ is about the same)
+- **In air, no AC reads `{python} f2(min(line_recovery(p, i, 3200, "osem8_noac") for p in (A75, AIN) for i in range(3)))`–`{python} f2(max(line_recovery(p, i, 3200, "osem8_noac") for p in (A75, AIN) for i in range(3)))`:** the air phantoms are the same PMMA tanks, empty. The 8 mm (50 mm phantom: 6 mm) wall passes 0.87 (0.90) square on, less at an angle or through the ends; the air itself 99.7 %, the glass ≈ 99 %. Chang's $c$ at the lines is `{python} f2(min(chang_c(p, i) for p in (A75, AIN) for i in range(3)))`–`{python} f2(max(chang_c(p, i) for p in (A75, AIN) for i in range(3)))`, so Chang is right in air
+- **Line widths:** Chang divides by a smooth factor, so they stay those without AC (within 0.03 mm), not those with AC
+- **AC in the model:** 0.98–1.00 everywhere
+:::
+
+## Line activity, and where the rest goes
+
+![](img/lines_recovery_osem8_ac.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- **Left:** activity within 10 mm of each line ÷ the true activity there: 0.98–1.00 from ≈ 100 updates in all four phantoms (with AC)
+- **Right:** share of all reconstructed activity more than 6 mm outside the phantom: `{python} pct(outside(W75, 800))` at 800 updates, `{python} pct(outside(W75, 8000))` at 8000 (75 mm, water). It sits in a few voxels at the surface of the 144 mm FOV sphere that barely see the detectors (as in the last slides, more so here because the background is cold); the activity in the phantom is unaffected
+:::
+
+## Lines with a post-filter
+
+![](img/lines_filters_triple_line_75_water_line1.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- Line 1 of the 75 mm water phantom, each filter (dotted: the filter's own FWHM). Once the line has collapsed, the filtered FWHM is the filter's: `{python} f2(fwhm(W75, 1, 3200, 4, which="radial"))` mm radially with the 4 mm filter
+- So a filtered line measures the filter. The tangential width is 0.4–0.5 mm larger: the line sits on a voxel edge in y, two voxels wide
+:::
+
+# Derenzo
+
+## Derenzo in water: the images
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/derenzo_images_derenzo_brain_water_osem8_ac.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- OSEM 8 + AC, mean over z −30 … +30 mm, ÷ the true concentration (white ≥ 1.2). Clockwise from the top right: 3, 4, 5, 6, 7, 8 mm sectors (see the region slide)
+- Without a filter the 6–8 mm sectors separate by 800 updates and the 5 mm by ≈ 3000; the larger sectors also turn noisy and their channel centres overshoot. 4 mm filter: the same separation, less noise. 8 mm filter: 6–8 mm only
+:::
+::::
+
+## Derenzo: profiles along a row, no filter
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/derenzo_rows_derenzo_brain_water_osem8_ac_f0.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- Along the green row lines of the region slide; grey: the true channels (1 inside). 6–8 mm: separated, with peaks well above 1 at 8000 updates (overshoot at the channel centre, like the edge overshoot of the last slides). 5 mm: partly. 3–4 mm: no separation
+:::
+::::
+
+## Derenzo: profiles along a row, 4 mm filter
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/derenzo_rows_derenzo_brain_water_osem8_ac_f4.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- Same rows after the 4 mm filter: the overshoot is gone, the 5 mm channels still show as separate peaks
+:::
+::::
+
+## Derenzo: peak and sector recovery
+
+![](img/derenzo_recovery_derenzo_brain_water_osem8_ac_f0.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- **Left:** P ÷ C, no filter. The large channels pass 1 (8 mm: `{python} f2(sector(DW, "8", 8000, "peak_recovery"))` at 8000 updates): the overshoot; the small ones stay low because their peaks are blurred into the valleys
+- **Right:** activity within 2 mm of the channels ÷ true activity there: 0.83–0.98 at 8000 updates; the rest is spread into the PMMA between channels (and some leaves to the FOV edge)
+:::
+
+```{python}
+#| output: asis
+print(air_slides())  # the Derenzo-in-air results, once they are analysed
+```
+
+## Resolution: the Derenzo against the lines
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/derenzo_equivalent_fwhm_derenzo_brain_water_f0.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- Equivalent FWHM of each Derenzo sector (from its V/P, model slide) against the fitted FWHM of the 75 mm water lines at the same updates; no filter. Channels sit at r ≈ 17–69 mm, between the two lines
+- **At 8000 updates the Derenzo is blurred like a 4.1–5.8 mm Gaussian; the lines are at 1 mm.** The sectors also disagree with each other (smaller channels look blurrier): the reconstruction is not a fixed blur of the truth
+:::
+::::
+
+## Why the lines and the Derenzo disagree
+
+- **The reconstruction is not linear.** OSEM / MLEM converge fast for small hot objects in a cold background and slowly for large, dense activity; non-negativity lets a sparse source collapse below the system's blur (resolution recovery)
+- So a line-source FWHM is a property of that line in that background, at that number of updates, not of the scanner. For this reason NEMA NU 2 (PET) prescribes filtered back-projection for its resolution test
+- **For images of extended activity (the brain), the Derenzo number is the relevant one:** channels of 5 mm are partly separated, 6 mm clearly, at 3200–8000 updates
+- The 2 mm grid limits both: the 3 mm sector cannot separate even in the truth on the grid (V/P 0.07)
+
+## Choosing the post-filter: voxel noise
+
+![](img/derenzo_noise_derenzo_brain_water.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- Solid: noise between the bootstrap copies; without a filter it reaches `{python} f2(boot_sector(DW, "5", 8000, "voxel_cov"))` at 8000 updates (5 mm sector), with 4 mm `{python} f2(boot_sector(DW, "5", 8000, "voxel_cov", 4))`
+- Dotted: the spread across the core voxels of one image (higher: it also contains real structure, such as the overshoot at the channel centres)
+:::
+
+## Choosing the post-filter: separation against noise
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/derenzo_tradeoff_derenzo_brain_water.png){width=100% group="figs"}
+:::
+::: {.column width="32%" .side-notes}
+- Top: one curve per filter through the updates; higher and further left is better. Bottom: CNR against updates
+:::
+::::
+
+## Choosing the post-filter: the result
+
+| sector | best filter at 1600 updates | at 3200 | at 8000 | CNR, 4 mm filter: 1600 / 3200 / 8000 | V/P, 4 mm filter, 3200 |
+|:--|:-:|:-:|:-:|:-:|:-:|
+| 5 mm | `{python} best_filter_boot(DW, "5", 1600)` mm | `{python} best_filter_boot(DW, "5", 3200)` mm | `{python} best_filter_boot(DW, "5", 8000)` mm | `{python} f1(boot_sector(DW, "5", 1600, "cnr", 4))` / `{python} f1(boot_sector(DW, "5", 3200, "cnr", 4))` / `{python} f1(boot_sector(DW, "5", 8000, "cnr", 4))` | `{python} vp_pm(DW, "5", 3200, 4)` |
+| 6 mm | `{python} best_filter_boot(DW, "6", 1600)` mm | `{python} best_filter_boot(DW, "6", 3200)` mm | `{python} best_filter_boot(DW, "6", 8000)` mm | `{python} f1(boot_sector(DW, "6", 1600, "cnr", 4))` / `{python} f1(boot_sector(DW, "6", 3200, "cnr", 4))` / `{python} f1(boot_sector(DW, "6", 8000, "cnr", 4))` | `{python} vp_pm(DW, "6", 3200, 4)` |
+| 8 mm | `{python} best_filter_boot(DW, "8", 1600)` mm | `{python} best_filter_boot(DW, "8", 3200)` mm | `{python} best_filter_boot(DW, "8", 8000)` mm | `{python} f1(boot_sector(DW, "8", 1600, "cnr", 4))` / `{python} f1(boot_sector(DW, "8", 3200, "cnr", 4))` / `{python} f1(boot_sector(DW, "8", 8000, "cnr", 4))` | `{python} vp_pm(DW, "8", 3200, 4)` |
+
+"Best": the filter (0, 3, 4, 5, 6, 8 mm) with the highest CNR = (P − V) ÷ bootstrap SD of one core voxel.
+
+- **The best filter grows with the channel:** about the size of the structure to be seen (the matched-filter rule). The 8 mm filter of the last slides suits 8 mm objects, and erases the 5 mm sector (V/P `{python} f2(vp(DW, "5", 8000, 8))`)
+- **Choice: 4 mm,** the best for the smallest channels that still separate (5 mm), and about the Derenzo's own resolution (equivalent FWHM 4–6 mm); its size is what it says (≥ 3 mm, filter check)
+- The CNR peaks at 400–3000 updates (earlier for the large channels and without a filter) and then falls: later updates add more noise than separation. With 4 mm, 1600 and 3200 updates are equal for the 5 mm channels
+
+## AC in the Derenzo in water: every channel's peak
+
+![](img/derenzo_ac_radius_derenzo_brain_water_it100_f4.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- Peak of each channel ÷ C against its distance from the axis, 800 updates, 4 mm filter. **AC in the model:** levels by channel size (larger channels recover more), rising toward the outside. **No AC:** everything 3–4× lower, the outer channels relatively brighter (less water in front of them). **Chang:** about the level of AC, more scatter between channels of one size, and the 8 mm channels too high
+:::
+
+## AC in the Derenzo in water: the images
+
+![](img/derenzo_methods_derenzo_brain_water_it400_f4.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- 3200 updates, 4 mm filter, same scale. Chang brings the no-AC image to about the right level, but keeps its blur and amplifies its noise in the centre (where it divides by ≈ 0.2): the small sectors turn mottled instead of separating
+:::
+
+## AC in the Derenzo in water: separation
+
+![](img/derenzo_compare_f4.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- Differences of V/P, 4 mm filter; grey: ± 2 bootstrap SD (water). `{python} air_compare_note()`**No AC − AC:** the 5 mm sector stops separating (V/P `{python} f2(vp(DW, "5", 8000, 4, "osem8_noac"))` vs `{python} f2(vp(DW, "5", 8000, 4))` at 8000 updates), the 6 mm one lags: the wrong model slows the reconstruction of fine structure
+- **Chang:** no better, slightly worse (`{python} f2(vp(DW, "5", 8000, 4, "osem8_chang"))`): a smooth factor applied after the reconstruction cannot restore separation the reconstruction did not make
+:::
+
+## AC in the Derenzo in air: every channel's peak
+
+![](img/derenzo_ac_radius_derenzo_brain_air_it100_f4.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- As for water (800 updates, 4 mm filter). "In air" is the bare PMMA block, 150 mm across: a photon from a central channel crosses ≈ 75 mm of PMMA, so the block attenuates almost as water does. Chang's $c$ is `{python} f2(chang_c_at(DA, 0, 0))` at the centre, `{python} f2(chang_c_at(DA, 50, 0))` at 50 mm (water: `{python} f2(chang_c_at(DW, 0, 0))`, `{python} f2(chang_c_at(DW, 50, 0))`)
+- **No AC:** 2–3× lower than with AC (8 mm channels `{python} f2(sector(DA, "8", 800, "peak_recovery", 4, "osem8_noac"))` vs `{python} f2(sector(DA, "8", 800, "peak_recovery", 4))`), brightest at the edge. **Chang:** the level of AC, more scatter within a size, the 8 mm channels too high (`{python} f2(sector(DA, "8", 800, "peak_recovery", 4, "osem8_chang"))`), as in water
+:::
+
+## AC in the Derenzo in air: the images
+
+![](img/derenzo_methods_derenzo_brain_air_it400_f4.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- 3200 updates, 4 mm filter, same scale. As in water: Chang restores the level, not the separation; its 4–6 mm sectors are mottled where AC in the model gives clean rows of channels
+:::
+
+## AC in the Derenzo in air: separation
+
+![](img/derenzo_compare_air_f4.png){.r-stretch group="figs"}
+
+::: {.fig-notes}
+- Differences of V/P, 4 mm filter; grey: ± 2 bootstrap SD (air). **No AC − AC:** the 5 mm sector separates far less (V/P `{python} f2(vp(DA, "5", 8000, 4, "osem8_noac"))` vs `{python} f2(vp(DA, "5", 8000, 4))` at 8000 updates), the 4 mm and 6 mm lag too. **Chang:** worse still (`{python} f2(vp(DA, "5", 8000, 4, "osem8_chang"))`)
+- Same pattern as in water (`{python} f2(vp(DW, "5", 8000, 4, "osem8_noac"))`, `{python} f2(vp(DW, "5", 8000, 4, "osem8_chang"))` vs `{python} f2(vp(DW, "5", 8000, 4))`): no water is needed for it, only enough attenuating material. Only the triple lines in air, inside a thin tank wall ($c$ ≈ 0.8), are corrected well by Chang
+:::
+
+# Conclusions
+
+## What the resolution phantoms show
+
+1. **Hot lines collapse to the 2 mm voxel** (fitted FWHM ≈ 1 mm after 1600–4000 updates, in water and in air); their width shows how fast resolution recovers, not the scanner's resolution
+2. **The Derenzo resolves 5–6 mm channels** (equivalent Gaussian FWHM 4–6 mm at 3200–8000 updates); 4 mm barely, 3 mm not (also limited by the 2 mm grid). This is the number for extended activity
+3. **Post-filter 4 mm, 3200 updates** as the reference: filter size checked on the grid (≥ 3 mm as nominal), best CNR for the 5 mm channels, about the measured resolution. The 8 mm filter of the last slides hides the 5 mm sector
+4. **AC is needed, in the model:** without it the activity is wrong (lines 0.2–0.5 in water), the off-axis lines stop shrinking at 1.5–2.1 mm, and fine Derenzo structure separates more slowly. Chang's correction afterwards fixes the centre lines and the triple lines in air (thin tank wall only), but leaves −43 to +23 % errors off-axis in water and none of the lost separation, in water or in the solid PMMA Derenzo in air (5 mm V/P `{python} f2(vp(DA, "5", 8000, 4, "osem8_chang"))` vs `{python} f2(vp(DA, "5", 8000, 4))` with AC, 8000 updates)
+5. Off-axis lines are 10–20 % narrower in water than in air (with AC), and the resolution varies by ≈ 0.5 mm along z, best under the dome.`{python} air_conclusion()`
+
+## Next
+
+- **Below the 2 mm grid:** the lines on the 1 mm or 1.5 mm SRM, to see whether they keep shrinking
+- **A resolution that does not depend on the object:** the local impulse response (a small point added to the Derenzo background) or a regularised reconstruction with a fixed target resolution

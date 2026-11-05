@@ -1,0 +1,581 @@
+---
+title: "Brain SPECT phantom reconstruction: corrections and SRM voxel size"
+subtitle: "Small Jaszczak, 15 mCi Tc-99m, 15 min, GATE 10 simulation · MLEM with the Gate system matrix (SRM)"
+author: "Fang Han"
+date: 2026-10-14
+date-format: "MMMM YYYY"
+filters:
+  - columns-typst.lua
+execute:
+  echo: false
+  warning: false
+format:
+  revealjs:
+    width: 1600
+    height: 900
+    margin: 0.06
+    slide-number: true
+    navigation-mode: linear
+    theme: [default, keynote.scss]
+    html-math-method: mathjax
+    progress: true
+    controls: true
+    controls-layout: bottom-right
+    controls-tutorial: false
+    menu: true
+    center: false
+    embed-resources: true
+    css: slides.css
+  typst:
+    papersize: presentation-16-9
+    margin: {x: 1.2cm, y: 0.9cm}
+    fontsize: 12pt
+    mainfont: Inter
+    include-before-body: typst-slides.typ
+  pptx: default
+---
+
+```{python}
+#| include: false
+import sys
+sys.path.insert(0, ".")
+from deck_data import *  # numbers from the analysis JSON files; figures are pre-rendered
+```
+
+## Summary
+
+- **With support restriction, TEW scatter correction and attenuation correction, the reconstructed activity is `{python} f2(S3["activity_over_truth"])`× the true activity**
+  (mean reconstructed concentration in a uniform water region ÷ true concentration; 1.00 is perfect; `{python} f2(S2["activity_over_truth"])`× without attenuation correction)
+- Without corrections `{python} pct(S0["outside_fraction"])` of the reconstructed activity lies outside the phantom; with all corrections `{python} pct(S3["outside_fraction"])`
+- **2, 1.5 and 1 mm SRMs give the same contrast and resolution at every iteration (1 to 2,000), even on data generated with the 1 mm SRM**
+- Fitted resolution (FWHM, 25.4 mm sphere, iteration 400): `{python} f1(fwhm("resolution", "2 mm", 400))` mm (2 mm SRM), `{python} f1(fwhm("resolution", "1 mm", 400))` mm (1 mm SRM)
+- Recommendation: keep the 2 mm SRM (5.5× faster than 1 mm); spend effort on convergence instead
+
+# Setup and methods
+
+## Setup: one acquisition, SRMs at three voxel sizes
+
+:::: {.columns}
+::: {.column width="58%"}
+![](img/phantom_truth.png){width=100%}
+
+| SRM grid | Non-zeros | Files (73 .npz) | In memory | Time / iteration |
+|:--|:-:|:-:|:-:|:-:|
+| 2 mm ($144^3$) | $1.43 \times 10^{9}$ | 3.2 GB | 8.6 GB, GPU | 0.2 s |
+| 1.5 mm ($192^3$) | $2.24 \times 10^{9}$ | 5.0 GB | 13 GB, streamed | 0.43 s |
+| 1 mm ($288^3$) | $4.61 \times 10^{9}$ | 10 GB | 28 GB, streamed | 1.1 s |
+:::
+::: {.column width="42%"}
+- Scanner: 73 pinhole modules on 7 rings, 288 mm spherical FOV, 25 × 25 pixels of 2 mm per module
+- Phantom: small Jaszczak, upside down, 25 mm below the FOV centre, 15 mCi Tc-99m in the water, 15 min
+- Rods (cold PMMA): 4.8, 6.4, 7.9, 9.5, 11.1, 12.7 mm
+- Spheres (cold PMMA): 6.4, 9.5, 12.7, 15.9, 19.1, 25.4 mm
+- Counts (126.5–154.6 keV): 104 M recorded, 79 M after TEW, 80 M unscattered (simulation only)
+- All three SRMs come from the same $1.0 \times 10^{14}$ simulated 140 keV photons
+:::
+::::
+
+## Insert sizes: exact geometry and on each reconstruction grid
+
+![](img/insert_map.png){height=540px}
+
+A voxel is cold when its centre lies inside an insert; on the 2 mm grid the 4.8 mm rods are only a few voxels each.
+
+## Sensitivity falls from the FOV centre to its edge, the same for all three grids
+
+:::: {.columns}
+::: {.column width="68%"}
+![](img/sensitivity.png){width=100%}
+:::
+::: {.column width="32%"}
+- Sensitivity = SRM column sum: counts detected from each voxel, per mm³ of source
+- 2 mm SRM: `{python} round(sens("2mm", 2.5))` counts/mm³ at the centre, `{python} round(sens("2mm", 67.5))` at 70 mm, `{python} round(sens("2mm", 142.5))` at the FOV edge
+- The three grids coincide (same photons, binned differently)
+- Voxels below 1,000 counts (2 mm grid) are frozen in MLEM: support restriction
+:::
+::::
+
+## Reconstruction: MLEM, and how the images are scored
+
+:::: {.columns}
+::: {.column width="52%"}
+MLEM update ($y$ = counts per detector pixel, $H$ = SRM, $\lambda$ = image):
+$$\lambda_j^{(k+1)} = \frac{\lambda_j^{(k)}}{\sum_i H_{ij}} \sum_i H_{ij}\,\frac{y_i}{\sum_{j'} H_{ij'}\lambda_{j'}^{(k)}}$$
+
+Cold contrast of an insert (1 = perfect, 0 = invisible):
+$$C = 1 - \frac{\bar\lambda_{\text{insert}}}{\bar\lambda_{\text{background}}}$$
+
+Quantitative accuracy (the "1.01×"):
+$$\text{accuracy} = \frac{\bar\lambda_{\text{uniform water}}}{\lambda_{\text{true}}}, \qquad \lambda_{\text{true}} = \frac{N_{\text{phantom}}/V_{\text{water}}}{N_{\text{SRM}}/V_{\text{FOV}}}$$
+:::
+::: {.column width="48%"}
+- Insert: voxels whose centre lies inside the rod or sphere
+- Background, sphere: water 4–12 mm outside its surface, > 4 mm from other inserts
+- Background, rods: water between the rods of the sector, > 2 mm from any rod
+- Accuracy: uniform water region (z −80 to −60 mm, r < 50 mm); $N$ = simulated decays or photons, $V$ = volumes; $\lambda$ is in SRM photons per voxel
+- Noise: coefficient of variation (CoV) in the same region
+:::
+::::
+
+## Scatter correction (TEW): what it does
+
+![](img/tew_spectrum.png){width=100%}
+
+- Photons that scatter in the phantom lose energy, and many still land in the main window from the wrong direction (orange, under the grey band): `{python} mc(TW["true_scatter_main"])` of the `{python} mc(TW["main"])` main-window counts
+- Two narrow side windows (green, 5.6 keV) see mostly scattered photons; TEW reads their levels and assumes the scatter falls in a straight line across the main window (red trapezoid)
+- The trapezoid's area is the estimated scatter, subtracted pixel by pixel: `{python} mc(TW["tew_estimate"])`, `{python} round(100 * (TW["tew_estimate"] / TW["true_scatter_main"] - 1))` % too high here, because the photopeak's tail raises the lower window and the true scatter is not linear
+
+## Scatter correction (TEW): the equations
+
+All quantities are **counts in one detector pixel** $i$ (one of $73 \times 625$), from one acquisition:
+
+$$\hat S_i = \left(\frac{C^{\text{low}}_i}{w_{\text{low}}} + \frac{C^{\text{up}}_i}{w_{\text{up}}}\right)\frac{w_{\text{main}}}{2}, \qquad y^{\text{TEW}}_i = \max\left(C^{\text{main}}_i - \hat S_i,\ 0\right)$$
+
+- $C^{\text{main}}_i, C^{\text{low}}_i, C^{\text{up}}_i$: counts in the main (126.5–154.6 keV), lower (120.8–126.5) and upper (154.6–160.2) windows; $w$: window widths in keV (28.1, 5.6, 5.6)
+- $\hat S_i$: estimated scattered counts in the main window (the trapezoid area); $y^{\text{TEW}}_i$: scatter-corrected counts, the data MLEM reconstructs
+- Per pixel the estimate is noisy: a typical pixel has `{python} round(PP["median_lower"])` counts in the lower and `{python} round(PP["median_upper"])` in the upper window, so $\hat S_i$ / true scatter spans `{python} f2(PP["estimate_over_true_p10"])`–`{python} f2(PP["estimate_over_true_p90"])` (10th–90th percentile); the relative noise per pixel rises from `{python} f2(PP["median_rel_noise_raw"])` to `{python} f2(PP["median_rel_noise_tew"])`; `{python} n(PP["clipped"])` of `{python} n(PP["pixels"])` pixels go negative and are set to 0
+- Planned: keep the raw counts and model the scatter in MLEM instead, comparing $y_i$ with $\sum_j H_{ij}\lambda_j + \hat S_i$ (Poisson statistics kept, no clipping)
+
+## Attenuation correction: the phantom's attenuation in the system matrix
+
+- The SRM was simulated in air; in the phantom, photons from deep inside are lost more than those near the surface
+- For each voxel $j$ and module $m$: the fraction of photons surviving the straight path to the module's pinhole; every SRM row of that module is multiplied by it
+- Path integrals through the phantom's own geometry and materials (water and the PMMA/nylon of walls, rods, spheres), traced with gammart (OptiX): 73 × 1.6 M rays in 8 s
+
+$$A_{m,j} = \exp\left(-\int_{\mathbf r_j}^{\mathbf p_m} \mu(\mathbf r)\,\mathrm{d}l\right), \qquad H^{\text{AC}}_{ij} = H_{ij}\,A_{m(i),j}$$
+
+$\mu$ at 140.5 keV: water 0.154 /cm, PMMA 0.177 /cm. Checks: transmissions match exact analytic path lengths to 0.0013; the attenuated SRM predicts the unscattered projections with correlation 0.9996 (per-module totals 0.995–1.020; air SRM 0.79–1.10).
+
+## The correction grows with depth; the PMMA inserts add about `{python} round(CM["inserts_share_median_pct"])` %
+
+![](img/attenuation_correction_map.png){width=100%}
+
+- Correction factor = air sensitivity ÷ attenuated sensitivity. In the water: `{python} f1(CM["correction_water_min"])`× at the wall, `{python} f1(CM["correction_centre"])`× at the FOV centre, up to `{python} f1(CM["correction_water_max"])`× at the lower centre of the phantom
+- The cold inserts are in the attenuation model as PMMA; their share of the correction (vs an all-water phantom) is up to `{python} f1(CM["inserts_share_max_pct"])` %, median `{python} f1(CM["inserts_share_median_pct"])` %. Attenuation depends on material, not on activity
+
+## Check: the attenuated SRM predicts the data; at 2 mm it misses at the phantom's edges
+
+![](img/ac_pixel_residuals_2mm.png){width=78%}
+
+::: {.smaller}
+- **Test (no reconstruction):** forward-project the true phantom through the air SRM $H$ and the attenuated SRM $H \cdot A$, scale to the measured total, compare with the unscattered data pixel by pixel. $t$ = the pixel's transmission, $(H \cdot A)x / Hx$. Pearson residual $(y - \hat y)/\sqrt{\hat y}$: std 1 when only Poisson noise is left
+- **Air:** modules `{python} f2(AR["2mm"]["air"]["module_ratio_min"])`–`{python} f2(AR["2mm"]["air"]["module_ratio_max"])`; data / model follows the water crossed (Pearson std `{python} f1(AR["2mm"]["air"]["pearson_std"])`)
+- **$H \cdot A$, 2 mm:** modules `{python} f"{AR['2mm']['ac']['module_ratio_min']:.3f}"`–`{python} f"{AR['2mm']['ac']['module_ratio_max']:.3f}"`. Pixels with $t$ = 0.25–0.55 (`{python} pct(ar_bins("2mm", 0.25, 0.55)[2])` of the counts) agree within `{python} f"{ar_bins('2mm', 0.25, 0.55)[0]:.3f}"`–`{python} f"{ar_bins('2mm', 0.25, 0.55)[1]:.3f}"`; outside that range, where the rays graze the phantom's edge or cross the most water, the data are up to `{python} round((max(ar_bins("2mm", 0, 0.25)[1], ar_bins("2mm", 0.55, 1)[1]) - 1) * 100)` % above the model. Pearson std `{python} f2(AR["2mm"]["ac"]["pearson_std"])`
+:::
+
+## Check at 1 mm: the attenuated SRM matches the data within Poisson noise
+
+![](img/ac_pixel_residuals_1mm.png){width=78%}
+
+::: {.smaller}
+- Same test with the 1 mm SRM, 1 mm attenuation factors and the phantom on the 1 mm grid: modules `{python} f"{AR['1mm']['ac']['module_ratio_min']:.3f}"`–`{python} f"{AR['1mm']['ac']['module_ratio_max']:.3f}"`, every transmission bin `{python} f"{ar_bins('1mm')[0]:.3f}"`–`{python} f"{ar_bins('1mm')[1]:.3f}"`, Pearson std `{python} f2(AR["1mm"]["ac"]["pearson_std"])`
+- **One ray from the voxel to the pinhole centre is enough:** photons that reach the crystal through the collimator instead of the pinhole cause no measurable error
+- **The 2 mm misfit is the grid:** activity and attenuation sampled on 2 mm voxels at the phantom's surfaces. This test cannot separate the two; in a reconstruction the activity is what is estimated, so the attenuation sampling is the part to fix (next: 2 mm SRM with factors averaged over each voxel)
+- Caveat: the SRM and the data come from the same GATE physics, so this tests the attenuation model, not the physics
+:::
+
+# Reconstruction of the unscattered data
+
+## The unscattered data: what the system matrix describes
+
+- The simulation tags every photon that scattered in the phantom (Compton or Rayleigh); the **unscattered data** keep only the others: `{python} mc(TW["primary_main"])` of the `{python} mc(TW["main"])` main-window counts
+- These photons may still scatter in the collimator or penetrate it, as in the SRM, so the SRM models them exactly apart from the phantom's attenuation
+- This is the cleanest test of the reconstruction itself: no scatter correction needed, so only the support restriction and attenuation correction are left to study
+- Next slides, 2 mm SRM: first the bare reconstruction in detail; then one change at a time, no corrections → + support restriction → + attenuation correction (AC), each at iterations 1–5, 20, 100 and 400
+
+## No corrections, full scale: only the FOV edge shows
+
+:::: {.columns}
+::: {.column width="64%"}
+![](img/bare_fov_unclipped.png){width=100%}
+:::
+::: {.column width="36%"}
+- **Bare reconstruction:** unscattered data, 2 mm SRM, MLEM, no AC; all `{python} n(BH['400']['voxels'])` voxels with non-zero sensitivity are updated (those intersecting the 288 mm source sphere)
+- 6 mm slabs; grey from 0 to the row's hottest voxel (red circle); orange dashed: FOV; green: phantom body
+- Iteration 20: the phantom is a dim disc
+- Iteration 400: the phantom vanishes; edge voxels reach `{python} f"{BH['400']['max']:,.0f}"`× water
+:::
+::::
+
+## Voxel values: why clip at 1.4× water {.smaller}
+
+![](img/bare_histogram.png){width=86%}
+
+- Every voxel with non-zero sensitivity, ÷ median water; dotted 1 (the median water), dashed 1.4 (the clip). Not drawn: voxels below 10⁻⁴ (`{python} n(BH["20"]["zero_voxels"])` at iteration 20, `{python} n(BH["400"]["zero_voxels"])` at 400)
+- **Iteration 400:** the FOV edge (r ≥ 140 mm) holds `{python} pct(BH["400"]["FOV edge, r ≥ 140 mm"]["activity_share"])` of the activity, almost all in the `{python} f'{BH["400"]["FOV edge, r ≥ 140 mm"]["voxels_above_clip"] * 100:.1f} %'` of its voxels above the clip, up to `{python} f"{BH['400']['max']:,.0f}"`× water (at $(x, y, z)$ = (`{python} ', '.join(f'{v:.0f}' for v in BH['400']['max_at_mm'])`) mm, at the FOV edge next to the phantom's lid fittings); the phantom water holds `{python} pct(BH["400"]["phantom water"]["activity_share"])`. A linear scale to the maximum shows only these voxels
+- **The clip:** the water peaks at 1 and the walls, inserts and the rest of the FOV lie below 1.4. But `{python} pct(BH["400"]["phantom water"]["voxels_above_clip"])` of the water voxels exceed it at iteration 400 (`{python} pct(BH["20"]["phantom water"]["voxels_above_clip"])` at 20; 99th percentile `{python} f1(BH["400"]["phantom water"]["p99"])`×): the bright rim without AC, which saturates white on the next slide; the line profiles give its true values
+
+## No corrections: clipped at 1.4× water
+
+:::: {.columns}
+::: {.column width="64%"}
+![](img/bare_fov.png){width=100%}
+:::
+::: {.column width="36%"}
+- Same slices as the previous slide; grey 0 to 1.4× the median water value, everything hotter is white
+- **Edge of the FOV:** from iteration 20, bright patches at the rim of the FOV; by iteration 400 they are isolated voxels. Activity more than 6 mm outside the phantom: `{python} pct(B0["20"]["outside_fraction"])` at iteration 20, `{python} pct(B0["400"]["outside_fraction"])` at 400 (hottest voxel `{python} f"{B0['400']['outside_max_over_water']:,.0f}"`× water)
+- **Inside the phantom:** level `{python} f2(B0["20"]["activity_over_truth"])`× the truth at iteration 20, `{python} f2(B0["400"]["activity_over_truth"])`× at 400; rim / centre `{python} f2(B0["20"]["rim_over_centre"])` → `{python} f2(B0["400"]["rim_over_centre"])`
+:::
+::::
+
+## No corrections: inside the phantom
+
+:::: {.columns}
+::: {.column width="64%"}
+![](img/bare_planes.png){width=100%}
+:::
+::: {.column width="36%"}
+- Rod plane (z = +29 mm) and sphere plane (z = −28 mm), 6 mm slabs, each panel 0 to 1.4× its own median water value
+- The inserts sharpen with the iterations; so does a bright ring inside the wall, the attenuation mismatch
+- Orange lines: the profiles on the next two slides. Rods: the longest row of each sector, one pitch beyond the end rods. Spheres: from the phantom axis through the sphere centre, out past the wall
+:::
+::::
+
+## No corrections: line profiles across the rods
+
+![](img/bare_profiles_rods.png){width=100%}
+
+- 10 mm slab average along z; each curve ÷ its median water value; grey = truth (1 mm grid); panel titles give the cold contrast at iterations 20, 100, 400
+- At iteration 400 the 9.5–12.7 mm rods fall to 0.2× the water or below; the 4.8 and 6.4 mm rods give only shallow dips (contrast `{python} f2(B0["400"]["rods_4.8mm"])` and `{python} f2(B0["400"]["rods_6.4mm"])`). The profiles climb to about 2× where a row reaches the wall
+
+## No corrections: line profiles through the spheres
+
+![](img/bare_profiles_spheres.png){width=100%}
+
+- 2 mm slab; same normalisation; the profile starts on the phantom axis (0 mm) and leaves the outer wall at 76.5 mm
+- The water at the axis sits at 0.8× the median and the wall peaks at 1.7–2.3× just inside it (r ≈ 62–66 mm), sharper with every iteration
+- The 12.7–25.4 mm spheres are close to empty by iteration 400; the 9.5 mm sphere is half-filled (contrast `{python} f2(B0["400"]["sphere_9.5mm"])`) and the 6.4 mm sphere barely dips (`{python} f2(B0["400"]["sphere_6.4mm"])`)
+
+## Step 1, support restriction: the phantom image does not change
+
+![](img/unscattered_support_rods.png){width=100%}
+
+- Rod plane, 6 mm slab average; each panel scaled to its own median water value
+- Inside the phantom the two rows are the same image (7.9 mm rods at iteration 400: `{python} f2(U0["rods_7.9mm"])` vs `{python} f2(U1["rods_7.9mm"])`): the frozen voxels lie at the FOV edge, far from the phantom
+
+## Step 1, support restriction: sphere plane
+
+![](img/unscattered_support_spheres.png){width=100%}
+
+- Iterations 1–5: one smooth blob; contrast of the 25.4 mm sphere `{python} f2(USTEPS["1: + support"]["5"]["sphere_25.4mm"])` at iteration 5, `{python} f2(USTEPS["1: + support"]["20"]["sphere_25.4mm"])` at 20, `{python} f2(USTEPS["1: + support"]["100"]["sphere_25.4mm"])` at 100
+- Without AC the wall turns bright from iteration 20 on (next slides)
+
+## Step 1 acts outside the phantom
+
+:::: {.columns}
+::: {.column width="52%"}
+![](img/unscattered_mip.png){height=640px}
+:::
+::: {.column width="48%"}
+- Maximum-intensity projection along z over the whole 288 mm FOV; grey scale 0 to 1.4× the median water value (as in section 3)
+- **No corrections:** isolated white dots near the FOV edge; by iteration 400 `{python} pct(U0["outside_fraction"])` of the activity lies more than 6 mm outside the phantom, the hottest voxel `{python} f"{U0['outside_max_over_water']:,.0f}"`× water
+- **+ support:** the dots go; the triangular streaks around the phantom stay (they sit in voxels the scanner does see): `{python} pct(U1["outside_fraction"])` outside, at most `{python} f"{U1['outside_max_over_water']:,.0f}"`× water
+- **+ AC:** the streaks fade; `{python} pct(U2["outside_fraction"])` outside, at most `{python} f1(U2["outside_max_over_water"])`× water. Without AC, MLEM puts the counts the model cannot explain outside the phantom
+:::
+::::
+
+## Step 2, attenuation correction: the bright wall goes
+
+![](img/unscattered_ac_rods.png){width=100%}
+
+- Without AC the wall grows brighter with every iteration: rim / centre `{python} f2(U1["rim_over_centre"])` at iteration 400; with AC `{python} f2(U2["rim_over_centre"])` (1 = flat)
+- Photons from the centre cross more water, so fewer arrive; a model without attenuation reads that as less activity at the centre
+
+## Step 2, attenuation correction: sphere plane
+
+![](img/unscattered_ac_spheres.png){width=100%}
+
+- With AC the background is level across the phantom and the spheres stand out against it, not against a bright wall
+- Iterations 1–5: both rows are blurred blobs, darker at the wall than in the centre (rim / centre at iteration 5: `{python} f2(USTEPS["1: + support"]["5"]["rim_over_centre"])` without, `{python} f2(USTEPS["2: + support + AC"]["5"]["rim_over_centre"])` with AC); without AC the wall then climbs past the centre
+
+## Line profiles: without AC the profile rises towards the wall
+
+:::: {.columns}
+::: {.column width="72%"}
+![](img/profiles_unscattered_it400.png){width=100%}
+:::
+::: {.column width="28%"}
+- Iteration 400; each curve normalised to its median water value; grey = truth
+- Steps 0 and 1 overlap (same image inside the phantom)
+- With AC the water between the inserts is flat and the dips line up with the true inserts
+:::
+::::
+
+## Over the iterations: AC fixes the level and the shape; contrast grows more slowly
+
+![](img/unscattered_curves.png){width=100%}
+
+- **Accuracy:** without AC the level stays at `{python} f2(U1["activity_over_truth"])`× the truth (the photons lost to attenuation are never put back); with AC `{python} f2(USTEPS["2: + support + AC"]["5"]["activity_over_truth"])`× at iteration 5 and `{python} f2(U2["activity_over_truth"])`× at 400
+- **Contrast:** higher without AC at the same iteration (7.9 mm rods `{python} f2(U1["rods_7.9mm"])` vs `{python} f2(U2["rods_7.9mm"])`), but in an image that is wrong (level `{python} f2(U1["activity_over_truth"])`×, bright wall); the AC model converges more slowly (curves still rising at 400)
+
+## Summary of the unscattered data at iteration 400
+
+::: {.nowrap}
+```{python}
+#| output: asis
+print(u_table())
+```
+:::
+
+- Accuracy: mean in the uniform section ÷ true concentration; outside: share of the activity more than 6 mm outside the phantom; noise: CoV per voxel in the uniform section
+- FWHM from fitting the 25.4 mm sphere as a ball blurred by a Gaussian, AC only: without AC the background slopes towards the wall and the fit's flat background does not hold
+
+## What the unscattered data show
+
+- With a matched model (unscattered photons, AC), MLEM returns the true activity (`{python} f2(U2["activity_over_truth"])`×) with a flat image (rim / centre `{python} f2(U2["rim_over_centre"])`) and almost nothing outside the phantom (`{python} pct(U2["outside_fraction"])`)
+- Support restriction only cleans up the FOV edge; attenuation correction is what makes the image right
+- Contrast and resolution are still limited by convergence: 7.9 mm rods `{python} f2(U2["rods_7.9mm"])`, FWHM `{python} f1(X["unscattered_fits"][UFIT["2: + support + AC"]]["400"]["25.4"]["fwhm_mm"])` mm at iteration 400, both still improving
+- These numbers are the target for section 3: the full data with TEW scatter correction should get as close to them as possible ("ideal" row there)
+
+# Reconstruction of the full data: corrections step by step
+
+## Rod plane: inserts appear by iteration 20; AC removes the bright rim
+
+:::: {.columns}
+::: {.column width="66%"}
+![](img/steps_rods.png){height=620px}
+:::
+::: {.column width="34%"}
+- Rows: 0 no corrections; 1 + support; 2 + TEW; 3 + attenuation correction; ideal = unscattered data + AC
+- Iterations 1–5: a smooth blob (MLEM recovers coarse structure first); no insert above 0.2 contrast
+- With AC the level is right early: `{python} f2(STEPS["3: + AC"]["5"]["activity_over_truth"])`× the truth at iteration 5
+:::
+::::
+
+## Sphere plane: the four largest spheres are clear by iteration 100
+
+:::: {.columns}
+::: {.column width="66%"}
+![](img/steps_spheres.png){height=620px}
+:::
+::: {.column width="34%"}
+- Same rows and iterations as the rod plane
+- 6 mm slab average, 2 mm SRM; each panel scaled to its own water level
+:::
+::::
+
+## Line profiles: AC flattens the profile; the inserts' dips keep their depth
+
+:::: {.columns}
+::: {.column width="72%"}
+![](img/profiles_steps_it400.png){width=100%}
+:::
+::: {.column width="28%"}
+- Without AC the profile rises towards the wall (rim / centre `{python} f2(S2["rim_over_centre"])`); with AC it is flat (`{python} f2(S3["rim_over_centre"])`)
+- Iteration 400; each curve normalised to its median water value; grey = truth
+:::
+::::
+
+## All three corrections together give a quantitative, uniform image
+
+```{=latex}
+\scriptsize
+```
+
+```{python}
+#| output: asis
+print(steps_table())
+```
+
+```{=latex}
+\normalsize
+```
+
+- Contrast columns: cold contrast; outside phantom = share of the reconstructed total > 6 mm outside it; FWHM from the 25.4 mm sphere fit
+- Contrast without AC is higher at the same iteration: a model-mismatch effect (on identical noise-free data the air SRM gives the 25.4 mm sphere 0.89, the attenuated SRM 0.79; the attenuated model converges more slowly)
+
+## Activity outside the phantom: how to read the maximum-intensity projections
+
+:::: {.columns}
+::: {.column width="48%"}
+![](img/outside_mip.png){width=100%}
+:::
+::: {.column width="52%"}
+- **What a panel is:** a maximum-intensity projection (MIP) of one 3D reconstruction: for every $(x, y)$, the *largest* voxel value along $z$ through the whole 288 mm FOV. Seen from above, $x$ to the right, $y$ up. One hot voxel anywhere in the column shows up, which a slice would miss
+- **Grey scale:** 0 (black) to 1.4 × the median water value of that reconstruction. Everything at or above 1.4 × water is white, so the phantom (the central disc, 139 mm across) saturates, and *any* bright pixel outside it is activity that should not be there
+- **Rows:** the correction steps, 0 none · 1 + support restriction · 2 + TEW · 3 + attenuation correction (2 mm SRM, full data)
+- **Columns:** MLEM iterations 5, 20, 100 and 400
+:::
+::::
+
+## Activity outside the phantom: what the projections show
+
+:::: {.columns}
+::: {.column width="55%"}
+- **Isolated white dots near the FOV edge** (row 0): single voxels the scanner barely sees, which MLEM drives up without bound, to $10^{5}\times$ water by iteration 400. Freezing low-sensitivity voxels (support restriction, row 1) removes them
+- **Triangular streaks around the rim** (rows 0–2): present from the first iterations and still there after support restriction and TEW. They nearly vanish with attenuation correction (row 3): without AC the model cannot explain the counts lost to attenuation and puts them where few modules look
+- **The phantom disc** sharpens with iterations; its halo at iteration 5 is the coarse early estimate
+:::
+::: {.column width="45%"}
+Share of the reconstructed activity more than 6 mm outside the phantom:
+
+```{python}
+#| output: asis
+print(outside_table())
+```
+
+Early (it. 5): the blurred first estimate spills past the phantom edge in every row. Late (it. 100–400, rows 0–2): the hot edge voxels and rim streaks take over; only AC keeps the share falling.
+:::
+::::
+
+[MIP: Wallis, IEEE Trans. Med. Imaging 8:297–303 (1989); Wallis & Miller, J. Nucl. Med. 32:534–546 (1991). The outside-phantom share is a diagnostic defined for this study.]{style="font-size: 0.6em; color: #777"}
+
+# SRM voxel size: 2, 1.5 or 1 mm
+
+## SRM voxel size: 2, 1.5 and 1 mm give the same image at every iteration
+
+![](img/resolution_rods.png){width=100%}
+
+All corrections (TEW + AC), rod plane, 6 mm slab average; the 1 mm images look smoother, not sharper.
+
+## Line profiles and fitted FWHM: no gain from finer voxels
+
+:::: {.columns}
+::: {.column width="70%"}
+![](img/profiles_resolution_it400.png){width=100%}
+:::
+::: {.column width="30%"}
+FWHM (mm), 25.4 mm sphere:
+
+```{=latex}
+\scriptsize
+```
+
+```{python}
+#| output: asis
+print(fwhm_table())
+```
+
+```{=latex}
+\normalsize
+```
+
+Fit: the sphere as a ball of radius $R$ blurred by a 3D Gaussian, $\lambda(r) = b - (b-c)\,[B_R * G_\sigma](r)$, FWHM $= 2.355\,\sigma$
+
+Smaller spheres fit wider: their contrast has not converged yet.
+:::
+::::
+
+## The 7.9 mm rods reach the same contrast with every SRM grid
+
+![](img/contrast_vs_iteration_rods_7.9mm.png){width=100%}
+
+$$C = 1 - \frac{\bar\lambda_{\text{insert}}}{\bar\lambda_{\text{background}}}$$
+
+The three lines lie on top of each other, even when the data come from the 1 mm SRM itself (an "inverse crime" that favours 1 mm). Next two slides: which voxels enter $C$, and the exact code.
+
+## How the 7.9 mm rod contrast is measured
+
+![](img/contrast_masks_rods_7.9mm.png){width=100%}
+
+:::: {.columns}
+::: {.column width="50%"}
+- **Insert** (red): voxels whose centre lies inside one of the `{python} X["contrast_masks_rods_7.9mm"]["2mm"]["rods"]` rods of the sector, within the slab $|z - z_{\text{rods}}| \le 18 - 4$ mm (clear of the plates)
+- **Background** (blue): water in the same slab, within 1.5 rod pitches of a rod of the sector, more than 2 mm from any rod
+:::
+::: {.column width="50%"}
+- Voxels, 2 mm grid: `{python} n(X["contrast_masks_rods_7.9mm"]["2mm"]["insert_voxels"])` insert, `{python} n(X["contrast_masks_rods_7.9mm"]["2mm"]["background_voxels"])` background; 1 mm grid: `{python} n(X["contrast_masks_rods_7.9mm"]["1mm"]["insert_voxels"])` and `{python} n(X["contrast_masks_rods_7.9mm"]["1mm"]["background_voxels"])`
+- The same masks give every rod and sphere contrast in this deck; spheres use a 4–12 mm water shell instead
+- Here the background reaches the phantom wall, where the image dips slightly (rim / centre 0.92): a small downward bias, the same for every grid
+:::
+::::
+
+## The exact code behind every contrast number
+
+:::: {.columns}
+::: {.column width="64%"}
+```{python}
+#| output: asis
+print(code_excerpt(PYDIR / "analyze_jaszczak_recon.py", "masks", 'rods = [p for p in parts if p.role == "rod"]', 'out[f"rods_'))
+```
+:::
+::: {.column width="36%"}
+```{python}
+#| output: asis
+print(code_excerpt(PYDIR / "analyze_jaszczak_recon.py", "contrast"))
+```
+
+- `roles`: the phantom model voxelised on the reconstruction grid (`phantom_models.voxelize`)
+- `volume`: one MLEM estimate
+- $C = 1 - \bar\lambda_{\text{insert}} / \bar\lambda_{\text{background}}$
+- `rod_background`: "footprint" (used in this deck) or "hull"
+:::
+::::
+
+## Even close to convergence, the 1 mm SRM does not pull ahead
+
+```{=latex}
+\scriptsize
+```
+
+```{python}
+#| output: asis
+print(need_table())
+```
+
+```{=latex}
+\normalsize
+```
+
+- Noise-free data from the 1 mm SRM favour the 1 mm reconstruction (its model is exact by construction); 10×-count Poisson data give the same result
+- At 2,000 iterations the 2 mm SRM is slightly ahead: the 1 mm problem has 8× more unknowns and converges more slowly
+
+## Statistical uncertainty: method {.smaller}
+
+The contrasts above come from one noisy acquisition. To measure how much they would change with a new acquisition, the data were split into independent parts:
+
+1. The `{python} n(1800)` simulation jobs (0.5 s time slices) were dealt into $K = 4$ **interleaved sub-acquisitions** (jobs 1, 5, 9, … ; 2, 6, 10, …): each covers the full 15 min with ¼ of the counts, and the four share no photons
+2. Each sub-acquisition was merged and reconstructed exactly like the full data (TEW + AC, 2 mm and 1 mm SRMs, iteration 400), and its contrasts computed with the same masks
+
+$$\bar C = \frac1K\sum_{k=1}^{K} C_k, \qquad s^2 = \frac{1}{K-1}\sum_{k=1}^{K}\left(C_k - \bar C\right)^2, \qquad \mathrm{SE}_{\text{full}} \approx \frac{s}{\sqrt K}$$
+
+- $\mathrm{SE}_{\text{full}}$: standard error at the **full** count level; each part has $1/K$ of the counts and the variance scales about as 1/counts
+- Grids compared **pairwise** on the same data: $d_k = C_k^{2\,\text{mm}} - C_k^{1\,\text{mm}}$, $\bar d \pm s_d/\sqrt K$, two-sided $t$-test of $\bar d = 0$ with $K - 1 = 3$ degrees of freedom. The noise common to both grids cancels, so small grid effects become visible
+- Caveats: with $K = 4$ the standard errors themselves are uncertain by about ±40 %; the 1/counts scaling is approximate for MLEM at a fixed iteration
+
+## Statistical uncertainty: contrast ± standard error
+
+![](img/subset_errorbars_footprint.png){width=100%}
+
+- Standard errors at full counts: rods `{python} se_text("rods")`; spheres 12.7–25.4 mm `{python} se_text("sphere", 12.7)`; spheres 6.4 and 9.5 mm `{python} se_text("sphere", 0, 9.5)` (only a few dozen voxels each): their single-number contrasts are the least reliable in this deck
+- The 2 mm and 1 mm points overlap within their error bars for every insert
+
+## Statistical uncertainty: the grids differ by less than the noise {.smaller}
+
+:::: {.columns}
+::: {.column width="64%"}
+::: {.compact}
+```{python}
+#| output: asis
+print(subset_table())
+```
+:::
+:::
+::: {.column width="36%"}
+- **Differences** 2 − 1 mm: at most `{python} f"{subset_range()[2]:.3f}"` for any insert, in both directions; smaller than the contrast's own standard error everywhere except `{python} "; ".join(diff_exceeding_se()) or "none"`, where the 2 mm SRM is slightly higher
+- The paired test is very sensitive (±0.001–0.005), so a few tiny differences come out "significant" (p < 0.05); with 12 inserts and two background definitions, a few such values are expected by chance
+- The convex-hull rod background gives the same conclusion (largest difference `{python} f"{subset_range(mode='hull')[2]:.3f}"`)
+- Sub-acquisition means agree with the full-data values (7.9 mm rods: `{python} f"{SUB['per_grid']['footprint']['2mm']['400']['rods_7.9mm']['mean']:.3f}"` vs `{python} f2(M["2mm_step3_ac"]["full_tew"]["400"]["rods_7.9mm"])`)
+:::
+::::
+
+## Why the grid does not matter for this scanner
+
+- The system blurs more than the grid: fitted FWHM `{python} f1(fwhm("resolution", "2 mm", 400))`–`{python} f1(fwhm("resolution", "1 mm", 400))` mm at iteration 400 with every grid; a 2 mm grid already represents detail down to about 4 mm
+- MLEM is not converged: contrast still rises at iteration 400, and noise-free and measured curves almost coincide, so iterations, not counts or voxels, limit the image
+- A finer grid costs more and is noisier: 1 mm takes 5.5× the time per iteration and 28 GB instead of 8.6 GB, and each SRM entry comes from 8× fewer simulated photons
+- Would change the answer: sharper system resolution (smaller pinholes, finer detector pixels) or tasks on structures of 4 mm or less
+
+## Caveats and next steps
+
+**Caveats**
+
+- Simulation only: the SRM and the data share geometry and physics
+- The $\mu$ map is the exact phantom; real data need a CT or a fitted outline
+- One ray per voxel and module (pinhole centre); plain MLEM, no regularisation; cold inserts only
+
+**Next steps**
+
+- Same pipeline on the corrected XCAT head data (running on Expanse); 42 % of its counts come from outside the FOV
+- Scatter: model the TEW estimate $s$ inside MLEM, comparing $y$ with $H\lambda + s$, instead of subtracting it ($y - s$ vs $H\lambda$): keeps the Poisson statistics, no clipping, less noise
+- OSEM or another accelerated algorithm; a hot-sphere phantom for recovery coefficients

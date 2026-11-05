@@ -1,0 +1,14 @@
+Verify the citations (read-only; use web search) of ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/report.qmd and ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/references.bib, against ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/ingredients/references_seed.md and the lit notes in ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/ingredients/.
+1. For each bib entry: confirm the authors, title, journal, year, volume, pages and DOI exist and match (search the DOI or title). Give the corrected BibTeX where needed.
+2. For each [@key] in report.qmd: does the cited paper support the sentence it is attached to? Flag overclaims, especially the Zannoni/Meng 2021 numbers and quotes, Metzler & Moore 2020, Accorsi & Metzler 2004, the Feng 2022 DC-SPECT numbers and the DB-SPECT abstract.
+3. These standard references were dropped because the drafter had no web access. Verify each and provide correct BibTeX, so they can be restored where the report mentions the method:
+   - Ogawa 1991 (TEW), IEEE TMI 10(3):408;
+   - Jan et al. 2004 GATE (PMB 49:4543), and Sarrut et al. 2022 opengate (PMB 67:184001);
+   - Hudson & Larkin 1994 OSEM;
+   - Hutton, Buvat & Beekman 2011 review;
+   - Lai & Meng 2018 PMB 63:045008 (exact title);
+   - Mandot et al. 2025 NSS/MIC (doi 10.1109/nss/mic/rtsd57106.2025.11286925): exact authors and title;
+   - Dewaraja, Ljungberg & Fessler 2006.
+   Also suggest 2-3 further standard references the report would be expected to cite: a converging/focused-pixel or LIOB laser-barrier detector paper, and a classic multi-pinhole brain SPECT system paper. Verify each one exists.
+
+Output: (a) a table of entries with ok/fix/drop; (b) corrected and new BibTeX in one code block; (c) claim-support problems. Under 900 words plus BibTeX.

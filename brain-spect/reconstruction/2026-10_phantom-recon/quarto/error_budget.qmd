@@ -1,0 +1,326 @@
+---
+title: "Error budget of the unscattered reconstruction"
+subtitle: "Small Jaszczak, Tc-99m, 80.4 M unscattered counts · OSEM 8 with the 2 mm Gate SRM · which factor costs how much"
+author: "Fang Han"
+date: 2026-10-19
+date-format: "MMMM YYYY"
+execute:
+  echo: false
+  warning: false
+format:
+  revealjs:
+    width: 1600
+    height: 900
+    margin: 0.06
+    slide-number: true
+    navigation-mode: linear
+    theme: [default, keynote.scss]
+    html-math-method: mathjax
+    progress: true
+    controls: true
+    controls-layout: bottom-right
+    controls-tutorial: false
+    menu: true
+    center: false
+    embed-resources: true
+    css: [slides.css, eb.css]
+    lightbox: true
+---
+
+```{python}
+#| include: false
+import sys
+sys.path.insert(0, ".")
+from eb_data import *  # numbers from error_budget_2026-10-16/analysis/metrics.json; figures pre-rendered
+```
+
+## Summary
+
+- **At the reference setting (8000 updates, 8 mm filter) the post-filter is the budget.** Rods 7.9 mm: truth 1.00 → `{python} f2(a("rods_7.9mm"))` on the 2 mm grid → `{python} f2(a("rods_7.9mm", 8))` after 8 mm → `{python} f2(s("B", "rods_7.9mm"))` noise-free reconstruction → `{python} f2(s("E", "rods_7.9mm"))` ± `{python} f2(sd("E", "rods_7.9mm"))` on the Gate data. Everything after the filter costs ≤ 0.04 for every rod sector.
+- **Unfiltered, the system + algorithm step is the loss** (rods 7.9 mm: `{python} f2(a("rods_7.9mm"))` → `{python} f2(s("B", "rods_7.9mm", 8000, 0))` at 8000 updates, `{python} f2(mlem("rods_7.9mm", UMAX_MLEM))` after 20,000 MLEM iterations); counting noise then dominates the image error (NRMSE `{python} f2(s("C", "nrmse_phantom", 8000, 0))` noise-free → `{python} f2(s("D", "nrmse_phantom", 8000, 0))` with noise).
+- **Discretisation, attenuation inside a voxel and noise-induced bias are small**: ≤ 0.03 contrast on every insert except the 6.4 mm sphere.
+- **The bootstrap error bars hold**: 20 independent Poisson draws give the same ensemble CoV as the 20 bootstrap copies (E / D 0.98–1.01) at every setting except unfiltered 8000 updates (1.22).
+- **Model mismatch is small but visible**: χ² per pixel `{python} f2(CHI2)` of the Gate data against the model; module totals drift by ring (+0.2 % top → −0.25 % bottom); the 15.9 mm sphere is low by 2–3 σ.
+- **Unexpected**: noise-free reconstructions do not settle. Voxel CoV in the uniform section grows to `{python} f2(s("B", "cov_voxel", 8000, 0))` (OSEM, 8000 updates) and `{python} f2(mlem("cov_voxel", UMAX_MLEM))` (MLEM, 20,000 iterations) with no noise in the data.
+
+# Question and method
+
+## The question: what keeps the reconstruction from the truth?
+
+Data: `in_fov_primary` of `full_small_jaszczak_15mCi` (unscattered counts, 80.4 M). The SRM has no phantom scatter, so data and model agree up to the factors below.
+
+| # | factor | mechanism |
+|---|---|---|
+| 1 | 2 mm voxel grid | partial volume of small rods and sphere edges, before any physics |
+| 2 | system | aperture widths 0.56–2.0 mm, 2 mm pixels, 73 modules; 45,625 measurements for 1.58 M unknowns |
+| 3 | algorithm | finite updates, OSEM limit cycle, positivity, support mask |
+| 4 | discretisation mismatch | the object is finer than the 2 mm basis of the model |
+| 5 | counting noise | 80.4 M counts |
+| 6 | model mismatch | gammart attenuation vs Gate transport, SRM Monte Carlo noise, other physics |
+
+## The ladder: one factor added per step
+
+::: {.nowrap}
+| step | data | reconstruction | adds |
+|---|---|---|---|
+| A | truth on the 2 mm grid: fraction of each voxel in the hot water (PV, from 0.5 mm) | none | 1 |
+| B | noise-free H₂A₂ · truth₂ (same model as the reconstruction: "inverse crime") | H₂, OSEM 8 to 8000 updates | 2 + 3 |
+| B∞ | as B | MLEM to 20,000 iterations ("converged" limit) | algorithm |
+| C | noise-free H₁A₁ · truth₁ (1 mm SRM, 1 mm object) | H₂ | 4 |
+| C′ | as C | H₂′ = 1 mm attenuated SRM summed to 2 mm | attenuation inside a voxel |
+| D | 20 Poisson draws of C at 80.4 M counts | H₂ | 5 |
+| E | Gate unscattered data (+ 20 bootstrap copies) | H₂ | 6 |
+:::
+
+- Common settings (the OSEM reference study): 8 balanced module subsets, support = air sensitivity > 1000, gammart attenuation factors, uniform start, 28 saved iterations; Gaussian post-filters 0–10 mm
+- The difference between neighbouring steps is that factor's share; factors interact, so the shares do not add exactly
+- Run on ERIS, gpu-l40s (3 jobs, 2026-10-16): ~3 min per OSEM run; MLEM 20,000 iterations 59 min
+
+## Metrics
+
+- **Contrast** of the 6 rod sectors and 6 spheres: $C = 1 - \bar\lambda_\text{insert} / \bar\lambda_\text{background}$ (definitions of the OSEM reference study, footprint rod background)
+- **Recovery**: mean in the uniform section (z −80 to −60 mm, r < 50 mm) ÷ true concentration
+- **NRMSE** over the phantom interior against the PV truth; with a filter, against the PV truth blurred by the same filter (the error beyond the filter's intended blur)
+- **Noise**: D: spread over 20 independent draws; E: bootstrap (20 multinomial copies of the data). For D, NRMSE² = bias² + variance per voxel
+- **True concentration** of each step, from the data total and the attenuated sensitivity: B `{python} f"{LEVELS['B']:.5f}"`, C `{python} f"{LEVELS['C']:.5f}"`, E (Gate primaries) `{python} f"{LEVELS['E']:.5f}"`. They agree to 0.2 %, and recovery is 0.998–1.005 at every step and setting, so activity scale is not a factor
+- Contrast of the truth itself: 1.00 with whole-voxel (nearest) assignment, less with PV, because the insert mask holds voxels only partly inside the insert
+
+# Contrast budget
+
+## At the reference setting the 8 mm filter takes almost all of the contrast
+
+![](img/error_budget/ladder_contrast_f8_u8000.png){height=510px}
+
+- 8000 updates, 8 mm FWHM; error bars: SD over the 20 draws (D) and the bootstrap SD (E)
+- From "truth + 8 mm" to E the lines are almost flat: system, algorithm, discretisation, noise and mismatch together cost ≤ 0.04 for rods and the spheres ≥ 9.5 mm (except the 15.9 mm sphere, −0.06)
+
+## Reference setting: each factor's share of the contrast loss
+
+::: {.ebtable}
+```{python}
+#| output: asis
+print(budget_table(8000, 8))
+```
+:::
+
+- Each column: later step − earlier step (2 mm grid = PV truth − 1; filter = filtered PV truth − PV truth; system + algorithm = B − filtered truth; discretisation = C − B; noise bias = D̄ − C; mismatch = E − D̄). Noise SD: SD over the 20 draws
+- At this setting the 6.4 mm sphere is not measurable (SD `{python} f2(sd("D", "sphere_6.4mm"))`)
+
+## Without a filter, the system and algorithm are the main loss
+
+![](img/error_budget/ladder_contrast_f0_u8000.png){height=500px}
+
+- 8000 updates, no filter. The gap from the PV truth to B is 0.09 (rods 12.7 mm) to 0.48 (rods 4.8 mm), 0.67 for the 6.4 mm sphere; still 0.08–0.43 for the rods after 20,000 MLEM iterations (B∞)
+- C, C′ and D̄ follow B within the noise; E is slightly below D̄ for most inserts
+
+## Without a filter: each factor's share
+
+::: {.ebtable}
+```{python}
+#| output: asis
+print(budget_table(8000, 0))
+```
+:::
+
+- Same columns as the filtered table without the filter column; system + algorithm = B − PV truth
+- The noise SD is 3–4× larger than with the 8 mm filter; for the spheres ≤ 12.7 mm it is as large as the mismatch column, so the mismatch values are noise there
+
+## Contrast against updates, no filter: all steps on one curve
+
+![](img/error_budget/contrast_vs_updates_f0.png){height=460px}
+
+- Dashed: PV truth. Bands: ± SD (D, E). B∞ (MLEM) plotted at updates = iterations
+- No step changes the shape: data from the 1 mm SRM (C), the 1 mm-aggregated model (C′), noise (D) and Gate data (E) all follow the inverse crime B. Contrast keeps rising at 8000 updates (rods 7.9 mm: `{python} f2(s("B", "rods_7.9mm", 1600, 0))` at 1600, `{python} f2(s("B", "rods_7.9mm", 8000, 0))` at 8000, `{python} f2(mlem("rods_7.9mm", UMAX_MLEM))` at MLEM 20,000)
+
+## Contrast against updates, 8 mm filter: converged within the filter's limit
+
+![](img/error_budget/contrast_vs_updates_f8.png){height=460px}
+
+- Dashed: PV truth with the same 8 mm filter, i.e. the best any reconstruction can do at this filter
+- At 8000 updates the noise-free curves (B, C) are within 0.01–0.04 of that limit for rods and spheres ≥ 9.5 mm; the reference setting is limited by the filter, not by convergence
+
+# Images
+
+## Rod plane, 8000 updates, no filter
+
+![](img/error_budget/images_rods_f0_u8000.png){width=100%}
+
+- Same grey scale for every panel (activity ÷ true concentration, 0–1.4)
+- B and C look alike (discretisation is small); with counting noise (D, E) the 4.8 and 6.4 mm rods disappear in noise of CoV ≈ 0.9
+
+## Rod plane, 8000 updates, 8 mm filter
+
+![](img/error_budget/images_rods_f8_u8000.png){width=100%}
+
+- The truth panel carries the same 8 mm filter as the reconstructions
+- With the filter, D and E look like B and C: noise is no longer the visible limit; the filter is
+
+## Sphere plane, 8000 updates, no filter
+
+![](img/error_budget/images_spheres_f0_u8000.png){width=100%}
+
+- Without a filter the 6.4 mm sphere is lost in the noise (contrast `{python} f2(s("D", "sphere_6.4mm", 8000, 0))` ± `{python} f2(sd("D", "sphere_6.4mm", 8000, 0))`); the 9.5 mm sphere is visible (`{python} f2(s("D", "sphere_9.5mm", 8000, 0))` ± `{python} f2(sd("D", "sphere_9.5mm", 8000, 0))`)
+
+## Sphere plane, 8000 updates, 8 mm filter
+
+![](img/error_budget/images_spheres_f8_u8000.png){width=100%}
+
+- With the filter the four large spheres are clear at every step; the 6.4 mm sphere is barely visible even in the filtered truth (contrast `{python} f2(a("sphere_6.4mm", 8))`)
+
+## Coronal slice, 8000 updates, 8 mm filter
+
+![](img/error_budget/images_coronal_f8_u8000.png){width=100%}
+
+- Central coronal slice (y = 0), z vertical. The axial structure of the phantom is reproduced at every step; no step adds an axial artefact
+
+## Where each factor acts: differences between steps, rod plane (8 mm)
+
+![](img/error_budget/differences_rods_f8_u8000.png){width=100%}
+
+- Diverging scale ±0.4 of the true concentration. C′ − C is blank: weighting the attenuation exactly inside each voxel changes nothing
+- C − B is a smooth low-frequency pattern (strongest at the phantom edge); D̄ − C, the noise-induced bias, is small; E − C is dominated by the one noise realisation of the Gate data
+
+## Differences between steps, sphere plane (8 mm)
+
+![](img/error_budget/differences_spheres_f8_u8000.png){width=100%}
+
+- Same pattern as in the rod plane: C′ − C blank, D̄ − C small, E − C dominated by noise
+
+## Differences between steps, coronal slice (8 mm)
+
+![](img/error_budget/differences_coronal_f8_u8000.png){width=100%}
+
+- B − A and C − B are largest at the plates and stems: the 8 mm-blurred edges of thin structures, where the system's response and the 1 mm object differ most from the 2 mm truth
+
+# Image error
+
+## NRMSE: noise dominates late; with a filter, mid updates are best
+
+![](img/error_budget/nrmse_vs_updates_phantom.png){height=430px}
+
+::: {.ebnote}
+- Unfiltered: noise-free error is smallest at `{python} f"{best_updates('C')[0]:,}"` updates (C, `{python} f2(best_updates('C')[1])`) and rises after; with noise the minimum is at `{python} best_updates('D')[0]` updates (`{python} f2(best_updates('D')[1])`)
+- 8 mm, against the filtered truth: C keeps improving to `{python} f3(s("C", "nrmse_f_phantom"))` at 8000; D and E are best at ~`{python} best_updates('D', 'nrmse_f_phantom', 8)[0]` updates (`{python} f3(best_updates('D', 'nrmse_f_phantom', 8)[1])`) and reach `{python} f3(s("D", "nrmse_f_phantom"))` at 8000, mostly noise (dashed)
+- B levels off at `{python} f3(s("B", "nrmse_f_phantom"))`, above C: B's data came from the nearest-voxel truth (dashed black, `{python} f3(a("nrmse_f_phantom", 8, "nearest"))` from the PV truth), so B converges to that object
+:::
+
+## NRMSE over the phantom interior
+
+::: {.ebtable}
+```{python}
+#| output: asis
+print(nrmse_table())
+```
+:::
+
+- "truth nearest": whole-voxel truth vs PV truth (the error of the grid assignment alone). D bias and D noise: the two parts of D̄'s error (bias² + variance = mean NRMSE²)
+- The reference setting (8000, 8 mm) has `{python} f2(s("D", "nrmse_f_phantom") / best_updates('D', 'nrmse_f_phantom', 8)[1])`× the image error of 400 updates + 8 mm, in exchange for contrast (rods 7.9 mm `{python} f2(s("D", "rods_7.9mm", 400, 8))` → `{python} f2(s("D", "rods_7.9mm"))`)
+
+# Noise-free reconstructions do not settle
+
+## Voxel fluctuations grow with updates even without noise in the data
+
+:::: {.columns}
+::: {.column width="55%"}
+![](img/error_budget/cov_vs_updates.png){width=100%}
+:::
+::: {.column width="45%"}
+- Uniform section, no filter. Noise-free B and C: CoV `{python} f3(s("B", "cov_voxel", 400, 0))` at 400 updates → `{python} f3(s("B", "cov_voxel", 8000, 0))` at 8000; MLEM B∞ → `{python} f3(mlem("cov_voxel", UMAX_MLEM))` at 20,000
+- With the 8 mm filter it stays ≤ `{python} f3(mlem("cov_voxel", UMAX_MLEM, 8))` (B∞), so the pattern is voxel-scale
+- Contrast still rises (and the smallest rods resolve) while the uniform region roughens: the classic late-iteration checkerboard of ML-EM
+- **Possible causes, not separated yet**: (1) the system is underdetermined (45,625 data, 1.58 M unknowns), so many images fit the data exactly and EM drifts among them; (2) the GPU engine stores the SRM in fp16, so even B's model differs from its data by ~10⁻³ per element, which late iterations amplify
+:::
+::::
+
+## Noise-free images, no filter: uniform section
+
+![](img/error_budget/images_noisefree_uniform.png){width=100%}
+
+- No noise in any of these data. The pattern is voxel-scale, uniform across the section, and stronger after 20,000 MLEM iterations than after 8000 OSEM updates
+
+## Noise-free images, no filter: rod plane
+
+![](img/error_budget/images_noisefree_rods.png){width=100%}
+
+- The same texture between the rods; B∞ resolves the rods better (contrast rods 6.4 mm `{python} f2(mlem("rods_6.4mm", UMAX_MLEM))` vs `{python} f2(s("B", "rods_6.4mm", 8000, 0))`) at the price of a rougher background
+
+# Counting noise and the bootstrap
+
+## Validation: bootstrap SD vs SD over 20 independent Poisson draws
+
+![](img/error_budget/noise_validation.png){height=500px}
+
+::: {.ebnote}
+- Each point: one insert's contrast SD at 400 / 1600 / 8000 updates. An SD from 20 samples is uncertain by ±16 %, so the ratio of two SDs scatters by ≈ ±23 %: the spread around the diagonal is that sampling scatter
+- No systematic offset except the unfiltered 8000-update points, where the bootstrap is larger (nonlinear regime, CoV ≈ 1)
+- Caveat: the ensembles come from different data (D from C's expected counts, E from the Gate data); the plan's exact test (bootstrap of one D draw) was not run
+:::
+
+## Ensemble noise: bootstrap and independent draws agree within 2 %
+
+::: {.ebtable}
+```{python}
+#| output: asis
+print(noise_table())
+```
+:::
+
+- Ensemble CoV = √(mean voxel variance) ÷ mean over the uniform section
+- Passes the plan's criterion (agreement within ~20 %) at every setting used for reporting; the bootstrap error bars of the OSEM reference study stand
+
+## Noise also shifts the mean a little
+
+- Noise bias D̄ − C (mean of 20 noisy reconstructions vs the noise-free one), 8000 updates:
+  - no filter: rods ≤ `{python} f2(max(abs(s("D", k, 8000, 0) - s("C", k, 8000, 0)) for k in RODS))`, spheres ≥ 12.7 mm ≤ `{python} f2(max(abs(s("D", k, 8000, 0) - s("C", k, 8000, 0)) for k in SPHERES[2:]))`, 6.4 mm sphere +`{python} f2(s("D", "sphere_6.4mm", 8000, 0) - s("C", "sphere_6.4mm", 8000, 0))`
+  - 8 mm: ≤ `{python} f2(max(abs(s("D", k) - s("C", k)) for k in RODS + SPHERES[1:]))` for every insert except the 6.4 mm sphere
+- But the voxel-wise bias part of NRMSE grows with noise (unfiltered 8000: `{python} f3(ens("D", "bias_phantom", 8000, 0))` vs `{python} f3(s("C", "nrmse_phantom", 8000, 0))` noise-free): positivity and the multiplicative update push noisy voxels in one direction; the insert means are hardly affected
+- Recovery: D̄ `{python} f3(s("D", "recovery", 8000, 0))`, C `{python} f3(s("C", "recovery", 8000, 0))`: no noise bias on the activity level
+
+# Model mismatch
+
+## Gate data vs the model's expected counts
+
+```{python}
+#| output: asis
+print(chi2_html())
+```
+
+- Expected = C's noise-free data (1 mm SRM × truth × gammart attenuation), scaled to the same total; pixels with > 10 expected counts (`{python} f"{CHI['pixels_used']:,}"`)
+- χ² per pixel `{python} f2(CHI2)` overall (modules `{python} f2(CHI2_MOD.min())`–`{python} f2(CHI2_MOD.max())`): about 18 % more scatter than Poisson. Part of it is the Monte Carlo noise of the SRM in the expected counts (factor 6b, not separated)
+- Module totals: within `{python} pct(RATIO_MOD.min(), 2)` to +`{python} pct(RATIO_MOD.max(), 2)`, trending with ring: ring 0 +`{python} pct(RING_RATIO[0], 2)`, ring 5 `{python} pct(RING_RATIO[5], 2)` (Poisson ±0.1 % per module). A small elevation-dependent difference, plausibly the attenuation model
+
+## Mismatch in the reconstruction: only the 15.9 mm sphere
+
+- E − D̄ in units of the combined SD of one E and one D reconstruction, every insert:
+  - rods and spheres other than 15.9 mm: within ±1.2 σ at every setting checked
+  - 15.9 mm sphere: `{python} f"{z_mismatch('sphere_15.9mm', 400, 0):.1f}"` σ (400 updates), `{python} f"{z_mismatch('sphere_15.9mm', 1600, 0):.1f}"` σ (1600), `{python} f"{z_mismatch('sphere_15.9mm', 400, 8):.1f}"` σ (400 + 8 mm), `{python} f"{z_mismatch('sphere_15.9mm', 8000, 8):.1f}"` σ (8000 + 8 mm): E is consistently lower (contrast `{python} f2(s("E", "sphere_15.9mm"))` vs `{python} f2(s("D", "sphere_15.9mm"))` at the reference)
+- One of 12 inserts at 2–3 σ is weak evidence on its own; the sphere's position (off-axis, plane of the spheres) could be checked against the per-pixel residuals of the modules that see it
+- Overall, model mismatch is the smallest factor after discretisation for the unscattered data
+
+# Conclusions
+
+## What the budget says
+
+- **Filtered reference (8000 updates, 8 mm)**: the filter sets the contrast. The reconstruction is within 0.01–0.04 of the filtered truth for rods and spheres ≥ 9.5 mm; noise SD 0.01–0.04; mismatch at the noise level except the 15.9 mm sphere
+- **Unfiltered**: system + algorithm costs 0.09–0.48 contrast on the rods and is not removed by more iterations (MLEM 20,000 recovers only 0.02–0.05 more than OSEM 8000); counting noise makes the image error 5× the noise-free one at 8000 updates
+- **Small factors**: the 2 mm SRM vs a 1 mm object (≤ 0.03, except the 6.4 mm sphere), attenuation weighting inside the voxel (≤ 0.007, except the 6.4 mm sphere), noise-induced bias of the insert means (≤ 0.01 for rods)
+- **2 mm grid**: the PV truth already has contrast 0.77 (rods 4.8 mm) to 0.95 (sphere 25.4 mm): the ceiling for any 2 mm reconstruction
+- **Bootstrap SDs validated** within sampling error, except unfiltered 8000 updates (bootstrap 22 % high)
+
+## Not done yet, and next steps
+
+- **Resolution** (point response by perturbation at centre, r 30 / 50 / 65 mm): needs extra GPU runs; not run
+- **SRM noise (6b)**: steps B_g, X1, X2 with the noise-free gammart SRM; not run (waiting for the gammart detector response)
+- **System what-ifs** (all apertures 0.56 mm, point apertures, 1 mm pixels) with gammart SRMs, to split factor 2
+- **Noise-free roughening**: separate the fp16 SRM from the underdetermined system (B with an fp32 projector on the same data; or data computed with the fp16-rounded SRM)
+- **Bootstrap of one D draw** against the D spread (the plan's exact test, same data for both)
+- **15.9 mm sphere**: check the residuals of the modules that see it; repeat E with another Gate seed if one is available
+
+## Files
+
+- Plan: `dev/reports/2026-10_phantom_recon/error_budget_plan.md`
+- Runs (ERIS, `$ERIS_SCRATCH/error_budget`, copied to `dev/python/brain_phantom_recon/error_budget_2026-10-16/runs`): `error_budget_runs.py`, `submit_slurm/run_error_budget_eris.sh`
+- Inputs: `error_budget_inputs.py` → `error_budget_2026-10-16/inputs`
+- Analysis (CPU): `error_budget_analysis.py` → `analysis/metrics.json`, `slices.npz`, sensitivities
+- Figures: `error_budget_figures.py` → `quarto/img/error_budget/`
+- Deck: `quarto/error_budget.qmd` (numbers from `eb_data.py`)

@@ -1,0 +1,14 @@
+Fact-check (read-only) the weekly Brain SPECT report at ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/report.qmd (rendered report.pdf; page images review/pages/p-*.png).
+Sources:
+- ingredients/facts.md, which cites the source files;
+- the source files themselves under ~/Work/RPIL/QMIRT/: pytorch-optix/docs/paper2_plan.md sections WP0-WP4, pytorch-optix/out/wp*/ json files, qmirt-gate-10-sim/dev/reports/2026-10-28_analytic_resolution/;
+- the figure script scripts/make_figures.py and img/figure_numbers.json.
+
+For EVERY number, claim and figure caption in report.qmd, verify it against the source data. Check also:
+- that each figure shows what its caption says: read the script code for the data and slices used, and look at the image;
+- that status labels (FINAL / PROVISIONAL / PLANNED) are right;
+- that nothing is overclaimed;
+- that the physics statements are correct, e.g. TEW, attenuation, box-vs-Gaussian, the square-pinhole formulas;
+- internal consistency between sections.
+
+Output a numbered list of findings. For each: the location (qmd line or section), what is wrong, the correct value with its source path, and severity (error / imprecise / suggestion). Under 900 words.

@@ -1,0 +1,14 @@
+Review the format and writing (read-only) of the weekly Brain SPECT report for a PI (a SPECT physicist). Inputs:
+- the source ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/report.qmd and the template ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/_header.typ;
+- the rendered PDF ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/report.pdf: look at EVERY page image ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/review/pages/p-*.png with the Read tool;
+- the brief at ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/ingredients/brief.md, which has the house rules.
+
+Judge as an expert technical editor:
+- whether the one-page summary says what changed and what is needed;
+- the flow and section order;
+- paragraph length and clarity; jargon or undefined terms; equations (numbered, symbols defined, worked numbers);
+- figures: size, legibility of labels and legends at print size, colour consistency, captions saying what to look at, whether the schematics actually explain the concept, and whether reconstructed images have a scale bar and the same grey scale;
+- tables (overflow, alignment);
+- page breaks, orphan headings, white space, header and footer, references formatting.
+
+Output prioritised, concrete edits: the location, the problem, and the exact suggested change or replacement text. Mark the top 10 as MUST. Under 1000 words.

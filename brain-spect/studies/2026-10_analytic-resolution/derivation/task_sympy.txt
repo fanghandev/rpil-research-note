@@ -1,0 +1,44 @@
+Write and run a symbolic validation of the square knife-edge pinhole formulas. Working directory:
+~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-28_analytic_resolution/derivation
+
+Read first:
+- square_pinhole.md: the derivation; §3.1 path length, §3.2 widths, §3.3 effective area, §3.7 expansions;
+- square_pinhole_model.py: the numeric implementation; reuse its functions as numeric references;
+- raytrace_results.json;
+- the plan: ~/.claude/plans/for-the-lean-part-temporal-bachman.md, section 2.
+
+Create sympy_check.py and run it with `micromamba run -n raytracing python sympy_check.py` (sympy 1.14, mpmath). The checks:
+
+a. **Path length.**
+   - Build the double-sided square knife edge symbolically: 8 half-planes, slopes t1 and t2 on the two sides, opening w.
+   - Build the oblique ray (θ, φ).
+   - Derive the tungsten path length for a crossing at offset p beyond an edge, and assert it equals κ·p·(U+L) as in §3.2/§3.3.
+   - Do the same for the corners: max(pU_x, qU_y) + max(pL_x, qL_y).
+   - State the zone I assumption explicitly.
+
+b. **Effective area.**
+   - Integrate the transmission symbolically: the strips in closed form; the corners with q = p·s, the p-integral first, then piecewise in s at s_U and s_L, with both orderings as explicit cases (no reliance on sympy Max).
+   - Obtain A_eff, and prove `simplify(A_ours − A_paper) == 0`. A_ours is the §3.3 boxed closed form. A_paper is the Metzler & Moore 2020 eq. 22 expression as transcribed/used in crosscheck_tables.py (mark it "transcription not yet checked against the PDF").
+   - If `simplify` stalls, use expand/cancel/together on cases, plus high-precision random-point checks.
+
+c. **Limits and expansions.**
+   - θ → 0 gives the Paix form w² + 2wt/μ + 2t²/μ².
+   - The series in θ to second order reproduces §3.7, for both the area and the widths.
+
+d. **Widths.**
+   - Solve T = k·T_max for the edge offset, giving W_x and W_y (§3.2 boxed forms); √2·W along the diagonal at normal incidence.
+   - Substituting tanθ = cotθ_AM, cosθ = sinθ_AM gives Accorsi & Metzler 2004 eq. 22 (d → w): show it term by term.
+   - The difference to AM2004 eq. 25 is only the −ΔL² sin²θ term inside its square root.
+   - The AM2004 PDF is ~/Work/RPIL/QMIRT/pytorch-optix/references/pinhole-collimator/Analytic_determination_of_the_resolution-equivalent_effective_diameter_of_a_pinhole_collimator.pdf. Read it and transcribe eqs. 22, 25 and 29 exactly; quote them in the report.
+
+e. **Numerics.**
+   - At 20 random (w, θ, φ, t) points in zone I, compare the closed forms with mpmath.quad of the raw transmission integral (area) and with a numeric half-maximum search (widths); tolerance 1e-10 relative.
+   - Compare also with raytrace_results.json.
+
+Output: sympy_check.py (prints PASS/FAIL per check with residuals) and sympy_check.md (what each check proves, results, and any discrepancy found).
+
+Rules:
+- If any formula in square_pinhole.md turns out wrong, do not fix square_pinhole.md. Report it clearly in sympy_check.md.
+- Only write inside this derivation folder. CPU only.
+
+Finish with a summary under 250 words.

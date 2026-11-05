@@ -1,0 +1,47 @@
+[      5 s] scene ready, n_det 45698
+[      6 s] H 512/904,960 voxels, 1 s
+[     44 s] H 51,712/904,960 voxels, 39 s
+[     78 s] H 102,912/904,960 voxels, 73 s
+[    108 s] H 154,112/904,960 voxels, 103 s
+[    135 s] H 205,312/904,960 voxels, 130 s
+[    164 s] H 256,512/904,960 voxels, 159 s
+[    192 s] H 307,712/904,960 voxels, 187 s
+[    221 s] H 358,912/904,960 voxels, 216 s
+[    251 s] H 410,112/904,960 voxels, 246 s
+[    277 s] H 461,312/904,960 voxels, 272 s
+[    305 s] H 512,512/904,960 voxels, 300 s
+[    335 s] H 563,712/904,960 voxels, 330 s
+[    364 s] H 614,912/904,960 voxels, 359 s
+[    394 s] H 666,112/904,960 voxels, 389 s
+[    423 s] H 717,312/904,960 voxels, 418 s
+[    452 s] H 768,512/904,960 voxels, 447 s
+[    485 s] H 819,712/904,960 voxels, 480 s
+[    519 s] H 870,912/904,960 voxels, 514 s
+[    551 s] H (45625, 904960), nnz 444,012,725 (491 per voxel), dropped share mean 2.25e-04
+[    574 s] noise emulation c1=2.5e+06: nnz 295,823,496
+~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-28_analytic_resolution/lir/lir_build.py:121: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  return torch.sparse_csr_tensor(torch.from_numpy(m.indptr.astype(np.int32)), torch.from_numpy(m.indices.astype(np.int32)),
+~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-28_analytic_resolution/lir/lir_build.py:121: UserWarning: Sparse CSR tensor support is in beta state. If you miss a functionality in the sparse tensor support, please submit a feature request to https://github.com/pytorch/pytorch/issues. (Triggered internally at /pytorch/aten/src/ATen/SparseCsrTensorImpl.cpp:49.)
+  return torch.sparse_csr_tensor(torch.from_numpy(m.indptr.astype(np.int32)), torch.from_numpy(m.indices.astype(np.int32)),
+[    578 s] lambda_max 2.2015e+09
+[    579 s] r=0 alpha=0.01: CG 50 it, 0 s
+[    580 s] r=0 alpha=0.001: CG 132 it, 1 s
+[    581 s] r=0 alpha=0.0001: CG 274 it, 2 s
+[    581 s] r=30 alpha=0.01: CG 50 it, 0 s
+[    582 s] r=30 alpha=0.001: CG 132 it, 1 s
+[    584 s] r=30 alpha=0.0001: CG 295 it, 2 s
+[    584 s] r=60 alpha=0.01: CG 50 it, 0 s
+[    585 s] r=60 alpha=0.001: CG 135 it, 1 s
+[    587 s] r=60 alpha=0.0001: CG 284 it, 2 s
+[    587 s] r=80 alpha=0.01: CG 50 it, 0 s
+[    588 s] r=80 alpha=0.001: CG 135 it, 1 s
+[    590 s] r=80 alpha=0.0001: CG 284 it, 2 s
+[    590 s] r=95 alpha=0.01: CG 50 it, 0 s
+[    591 s] r=95 alpha=0.001: CG 137 it, 1 s
+[    593 s] r=95 alpha=0.0001: CG 291 it, 2 s
+[    593 s] slice 0/43048
+[    603 s] slice 10000/43048
+[    607 s] slice 20000/43048
+[    612 s] slice 30000/43048
+[    620 s] slice 40000/43048
+[    623 s] done

@@ -1,0 +1,356 @@
+---
+title: Proposal for differentiable ray-traced SPECT calibration
+author: Fang Han
+format:
+    html:
+        toc: true
+    typst:
+        toc: true
+        toc-depth: 2
+    pdf:
+        pdf-engine: latexmk
+            
+
+bibliography: references.bib
+csl: american-medical-association-10th-edition.csl
+---
+
+## Core idea
+
+The proposed work is to build a **differentiable, ray-traced SPECT forward-modeling framework** that can serve two roles at once:
+
+- a **modern physics-and-geometry engine** for reconstruction, tightly connected to AI workflows through autograd or analytical gradients
+- a **software-calibration engine** that estimates mismatch between the nominal scanner model and the installed real system inside the reconstruction model itself
+
+These two roles should be treated as equally central. Calibration is not the final vision of the framework. It is the first application where the value of a differentiable physics engine can be made concrete and measurable.
+
+The key claim is not that GPU acceleration is new, and not even that ray tracing is new. The stronger claim is that **emission tomography still lacks a reconstruction-oriented framework that combines modern ray-traced geometry, differentiable operator design, and software calibration of system mismatch** [@Pie15; @Li95; @Def08; @Kim23; @Jia25c; @Jia25b; @Jia26].
+
+## Why this is a good problem now
+
+Three research lines have matured separately.
+
+First, SPECT has a deep calibration literature. Pinhole and multi-pinhole systems are known to be highly sensitive to center-of-rotation displacement, detector tilt, twist, focal length error, mechanical offset, and related geometric nonidealities [@Li95; @Beq03; @Beq05; @Def08; @Hav08]. That literature is technically strong, but it mostly treats calibration as something to do **before** reconstruction by point-source scans, phantom design, or system-specific refinement.
+
+Second, GPU acceleration and OptiX-based ray tracing have already been shown to work for SPECT forward modeling and Monte Carlo acceleration [@Pie15]. But this line of work has not been organized around differentiability, calibration-aware reconstruction, or tight integration with AI-oriented optimization.
+
+Third, CT and X-ray imaging now have differentiable projector and geometry-learning methods that treat geometry and motion as variables in the imaging operator rather than fixed constants [@Kim23; @Thi22; @Jia25c; @Jia25b; @Jia26]. This is exactly the conceptual shift that SPECT appears to need.
+
+The opportunity is to merge these three lines into one platform.
+
+## State of the art
+
+### Conventional calibration in SPECT
+
+The conventional SPECT calibration literature is more sophisticated than a simple “hardware QC” description suggests. It already contains rich geometric parameterizations and careful error analysis.
+
+[@Beq03] is a key baseline. It shows that a circular-orbit pinhole SPECT acquisition can be described by seven geometry parameters: focal length, two electrical shifts, distance to axis, mechanical offset, tilt, and twist. It calibrates them from a single scan of a three-point-source phantom using a Powell least-squares fit to analytic projection equations. The paper is important because it formalizes the geometry and identifies which parameters matter most, especially tilt and vertical shift, but it assumes a circular orbit and constant parameters over the scan [@Beq03].
+
+[@Beq05] strengthens this line by asking not only how to estimate the seven parameters, but how to design the **best calibration phantom geometry**. It analyzes how source placement, calibration noise, and phantom model error affect image deformation and resolution loss. This paper should be read as a strong conventional baseline because it shows the practical burden of point-source calibration very clearly: the calibration result depends on phantom geometry, measurement noise, and model assumptions, even before reconstruction begins [@Beq05].
+
+[@Met05b] and [@Li93c] sit in the same tradition. They estimate mechanical and electronic shifts from point-source data, which is highly useful in practice but still keeps calibration as a dedicated pre-reconstruction workflow [@Li93c; @Met05b].
+
+### Early software compensation inside reconstruction
+
+The proposal should not overstate novelty. SPECT already has early forms of software calibration.
+
+[@Li95] is especially important here. It addresses displaced center-of-rotation in pinhole SPECT and folds the displacement directly into the ML-EM transition matrix through the ray-tracing process. The paper shows that even a 1 mm displacement can severely damage reconstruction, and that embedding the correction in the reconstruction model can recover the expected rods in a micro-SPECT phantom [@Li95]. This is a real precedent for software compensation, not just a historical curiosity.
+
+The limit of [@Li95] is that it solves a specific geometric defect in a specialized way. It does not expose a general differentiable framework in which geometry is optimized from losses, nor does it create a reusable operator abstraction for larger classes of mismatch.
+
+[@Def08] moves closer to the present proposal. It starts from an initial parametric calibration, then refines each camera pose with a small rigid transform by linearizing the projection equations and solving a least-squares problem with truncated SVD. This is much closer to software calibration because it estimates angle-specific deviations from data rather than demanding a fully remeasured system model [@Def08].
+
+That paper is a major bridge result for the proposal. It shows that the field already wants to estimate geometry in software, but its refinement remains:
+
+- tied to point-source calibration data
+- limited to small perturbations
+- decoupled from reconstruction loss on the actual object
+- non-differentiable in the modern framework sense
+
+So [@Def08] is best understood as a precursor to a differentiable calibration framework rather than a competitor that closes the problem.
+
+### Calibration coupled to system modeling and reconstruction
+
+[@Hav08] and [@Bit13] are especially useful because they make calibration and system modeling inseparable.
+
+[@Hav08] addresses ultra-high-resolution stationary multi-pinhole SPECT. It uses hundreds of point-source measurements to fit PSF properties such as position, width, and flux, then uses the fitted geometry and response model to populate lookup volumes for statistical reconstruction. This is still a physical calibration workflow, but it makes a crucial point: in high-resolution SPECT, the calibration target is not just a few pose numbers, but the behavior of the **effective forward operator** itself [@Hav08].
+
+[@Bit13] goes even further toward the present vision. It constructs a detector response function table from Geant4 simulations, then adapts the system matrix in software by changing the geometry used to query that table. The key idea is to decouple expensive response generation from study-specific geometry correction. This is extremely relevant to the proposal because it demonstrates a hybrid strategy:
+
+- heavy simulation or measurement is done once
+- geometry-sensitive adaptation is done repeatedly in software
+
+That is very close in spirit to a modern differentiable framework, even if [@Bit13] is not organized around autograd [@Bit13].
+
+### Ray tracing and GPU acceleration
+
+[@Pie15] is the clearest prior paper on OptiX in medical emission imaging. It uses NVIDIA OptiX both for Monte Carlo transport and for a ray-tracing projector that can support reconstruction. It reports large speedups over GATE, supports voxels, triangle meshes, and analytic objects, and demonstrates that ray-tracing infrastructure is viable for SPECT forward modeling [@Pie15].
+
+But [@Pie15] is not yet the proposal’s end state. Its geometry is fixed, it assumes a perfect detector in the reported results, and it does not make system parameters learnable or calibration-aware. Its importance is that it proves the feasibility of using a graphics-style ray-tracing substrate in SPECT and opens the door to a more reconstruction-centric operator.
+
+### Differentiable CT and X-ray work
+
+The most transferable recent methods come from CT and X-ray.
+
+[@Kim23] shows how to build a differentiable forward/backprojector library with matched adjoints, low memory footprint, and direct PyTorch integration. The important lesson is not CT-specific geometry. It is the architectural idea that a forward model should be:
+
+- fast enough for repeated iterative use
+- exposed to autograd or equivalent optimization tools
+- parameterized rather than precomputed as a giant system matrix [@Kim23]
+
+[@Thi22] is the most direct geometry-learning paper in this set. It derives analytical gradients of fan-beam CT reconstruction with respect to acquisition geometry and uses them to optimize geometry parameters from image-domain losses. This is highly relevant because it turns scanner mismatch correction into a gradient-based optimization problem instead of a separate QC step [@Thi22].
+
+[@Jia25c] provides the clearest software design template. It is a PyTorch-compatible projector toolbox with multiple forward models and strict adjoint handling. Its importance is infrastructural: it shows how a medical-imaging projector library can be made usable inside modern AI workflows without reducing everything to black-box neural surrogates [@Jia25c].
+
+[@Jia25b] and [@Jia26] are especially strong for the proposal because they derive analytical motion gradients of forward and backprojection and show that these can support 2D/3D registration, motion-compensated reconstruction, and online geometry calibration with much lower memory cost than naive autodiff [@Jia25b; @Jia26]. These papers strengthen the case that analytical gradients, not only generic autodiff, may be the right implementation path for SPECT.
+
+## What is missing from the literature
+
+The review above points to a specific missing combination.
+
+### Missing combination 1
+
+**Modern ray-traced geometry** is present in isolated form [@Pie15], but it is not yet the foundation of a differentiable reconstruction framework for emission tomography.
+
+### Missing combination 2
+
+**Software calibration** exists in early and partial forms [@Li95; @Def08], but not as a general operator framework where geometry is explicitly optimized as part of inference.
+
+### Missing combination 3
+
+**Differentiable projector frameworks** are mature on the CT side [@Kim23; @Thi22; @Jia25c; @Jia25b; @Jia26], but they have not yet been translated into a SPECT framework where detector response, collimator geometry, and calibration mismatch are central rather than peripheral.
+
+That is the true novelty gap.
+
+## Refined research vision
+
+The framework should be presented not as a single-purpose calibration tool, but as a **differentiable physics platform for emission tomography**.
+
+Calibration is the first strong application because it is:
+
+- clinically relevant
+- easy to benchmark against current practice
+- low-dimensional enough to optimize robustly
+- a clear pain point shared across systems
+
+But the deeper idea is broader. Once the forward model is differentiable and geometry-aware, the same framework can support:
+
+- geometry self-calibration
+- motion estimation and correction
+- learned or optimized detector-response parameters
+- AI-constrained reconstruction with physics consistency
+- eventual hybridization with richer physics such as scatter or detector optical effects
+
+This is why the peer-facing version should emphasize that calibration is **the entry point**, not the full destination.
+
+## Proposed new ideas
+
+The most important part of the second pass is to state the new ideas more explicitly.
+
+### Idea 1: Geometry should be represented in a graphics-native way
+
+Most current SPECT system models still rely on conventional analytic or voxelized descriptions of the imaging geometry. A ray-traced framework makes it natural to represent real hardware using:
+
+- triangle meshes
+- tessellated collimators
+- non-ideal detector housings
+- complex shielding and baffles
+- orbit-specific scene configurations
+
+This matters because real scanner mismatch often arises in a geometry regime that is awkward for conventional projector formulations but natural for ray tracing.
+
+### Idea 2: Calibration should be moved from a separate workflow into the operator itself
+
+The proposal is to treat the forward model as:
+
+$$
+y \approx A(\theta)x
+$$
+
+where $x$ is the activity distribution and $\theta$ contains scanner parameters such as:
+
+- center-of-rotation offset
+- detector translation
+- detector rotation
+- orbit-radius deviation
+- tilt and twist
+- focal length bias
+- electrical shifts
+
+Under this view, calibration is no longer something that produces a fixed geometry file before reconstruction. It becomes an estimation problem inside the imaging model.
+
+This is the conceptual leap from conventional physical calibration [@Beq03; @Beq05] and early software compensation [@Li95; @Def08] to modern differentiable calibration.
+
+### Idea 3: The framework should support both autograd and analytical gradients
+
+It would be a mistake to equate differentiability with only one implementation style.
+
+- **Autograd integration** is essential for AI workflows and rapid experimentation [@Kim23; @Jia25c].
+- **Analytical gradients** may be essential for efficiency and stability in large 3D systems [@Thi22; @Jia25b; @Jia26].
+
+A strong framework should support both philosophies:
+
+- autograd at the interface level
+- custom analytical gradient kernels where needed
+
+This dual design is likely to be more scalable than a pure end-to-end autodiff implementation.
+
+### Idea 4: The framework should be lighter than full Monte Carlo but richer than conventional projectors
+
+A peer will likely ask why not simply use Geant4 or OptiX-accelerated Monte Carlo. The answer is that this proposal is **reconstruction-first**, not transport-first.
+
+The goal is not to replace general-purpose transport simulation. The goal is to build an operator that is:
+
+- fast enough for repeated use inside optimization
+- rich enough to capture geometry-sensitive response
+- differentiable with respect to calibration variables
+- modular enough to absorb higher-order corrections
+
+This intermediate position is exactly where a useful framework can emerge.
+
+### Idea 5: Richer physics should be added modularly, not all at once
+
+The framework should begin with geometric and response-sensitive terms that are most relevant to calibration and reconstruction. Later modules can add:
+
+- parametric scatter corrections
+- MC-trained scatter surrogates
+- depth-of-interaction terms
+- detector optical transport modules
+
+This staged design is important. It allows the first paper to remain focused and credible while preserving the long-term vision of a fuller differentiable physics engine.
+
+## Why this is better than conventional calibration alone
+
+The proposal should argue this carefully.
+
+Conventional calibration is still necessary, but it has limits:
+
+- it depends on dedicated phantom or point-source measurements [@Beq03; @Beq05; @Hav08]
+- it assumes calibration parameters are constant or reproducible across scans [@Def08]
+- it often separates calibration from the actual reconstruction objective [@Li95; @Def08]
+- it can be cumbersome to maintain for systems with geometry changes, non-circular trajectories, or subtle system drift [@Li95; @Bit13]
+
+A software-calibration layer inside a differentiable forward model offers a different set of advantages:
+
+- it can optimize parameters against projection or image consistency directly [@Thi22; @Jia25b; @Jia26]
+- it can adapt to system mismatch at inference time rather than only during dedicated QC
+- it can use the same infrastructure for calibration, motion correction, and AI-constrained reconstruction
+- it can reduce the conceptual separation between “model building” and “image reconstruction”
+
+The strongest claim is not that software calibration replaces physical calibration entirely. The stronger and safer claim is that it can **refine, adapt, and partially absorb residual mismatch** that conventional calibration leaves behind.
+
+## Proposed framework architecture
+
+The framework should have four layers.
+
+| Layer | Role | Initial implementation target |
+|:---|:---|:---|
+| Geometry engine | ray-traced or tessellated scene representation of SPECT hardware | pinhole or multi-pinhole geometry with rigid pose variables |
+| Forward / adjoint operators | reconstruction-facing projector and matched backprojector | geometric response plus response-table hooks |
+| Differentiation layer | autograd interface and custom gradient kernels | gradients for geometry parameters and image variables |
+| Calibration / learning layer | optimization of system mismatch and AI integration | offline calibration first, alternating reconstruction-calibration second |
+
+The phrase “ray-traced” should remain broader than any one vendor tool. OptiX is an important candidate [@Pie15], but the architectural idea matters more than a single backend.
+
+## Research questions
+
+A peer-facing proposal should make the main questions explicit.
+
+### Q1
+
+Can a ray-traced or tessellated geometric forward model represent SPECT hardware mismatch more naturally than conventional projector formulations?
+
+### Q2
+
+Can differentiable software calibration recover residual geometry errors beyond what conventional point-source or phantom-based workflows remove?
+
+### Q3
+
+What is the best gradient strategy for this setting: pure autodiff, pure analytical gradients, or a hybrid approach?
+
+### Q4
+
+Can the framework remain light enough for iterative reconstruction while still being extensible toward richer physics?
+
+### Q5
+
+Does the same framework provide a clean bridge to AI-driven reconstruction, rather than remaining only a specialized calibration tool?
+
+## Concrete first-paper direction
+
+The first paper should not try to prove the entire framework vision. It should establish the platform through a narrow but meaningful target.
+
+A strong first-paper title would be close to:
+
+**Differentiable geometry calibration for SPECT using a ray-traced reconstruction-oriented forward model**
+
+This scope is good because it tests the most novel bridge directly:
+
+- ray-traced geometry
+- differentiable operator design
+- software calibration as a concrete task
+
+It also speaks to current practice in a way peers can evaluate against known baselines such as [@Beq03], [@Beq05], [@Def08], and [@Bit13].
+
+## Development roadmap
+
+### Stage 1: baseline and geometry parameterization
+
+- choose one target system class, ideally pinhole or multi-pinhole SPECT
+- define the geometry parameter vector $\theta$
+- reproduce a conventional baseline projector or calibration-aware model
+- collect point-source and phantom benchmarks
+
+### Stage 2: ray-traced forward operator
+
+- implement a geometric forward model with mesh or tessellated components
+- validate against conventional projectors and, where useful, high-fidelity simulation
+- identify which components should remain geometric and which should be table-based or surrogate-based
+
+### Stage 3: differentiable calibration
+
+- expose the operator to autograd
+- derive custom analytical gradients for the most important geometry parameters
+- benchmark offline calibration performance against physical-calibration baselines
+
+### Stage 4: reconstruction integration
+
+- alternate image and geometry updates
+- test whether residual mismatch can be corrected beyond conventional calibration
+- measure reconstruction quality, calibration recovery, and robustness to initialization
+
+### Stage 5: framework expansion
+
+- add detector-response or scatter modules
+- connect to PyTorch-based AI workflows
+- explore whether the framework can support broader differentiable physics tasks beyond geometry alone
+
+## Evaluation strategy
+
+The proposal should emphasize that success is not judged by raw simulation generality, but by usefulness for reconstruction and calibration.
+
+| Evaluation axis | Metrics |
+|:---|:---|
+| Calibration recovery | parameter estimation error, projection residuals |
+| Reconstruction quality | spatial resolution, contrast recovery, artifact suppression |
+| Robustness | sensitivity to initialization, noise, model mismatch |
+| Efficiency | runtime per iteration, memory use, geometry scaling |
+| Practical value | improvement over conventional calibration-plus-fixed-model reconstruction |
+
+The cleanest comparative design is three-way:
+
+- conventional physical calibration plus fixed-model reconstruction
+- conventional calibration plus new ray-traced operator
+- conventional calibration plus differentiable software refinement with the new operator
+
+That would separate the benefit of geometry representation from the benefit of software calibration.
+
+## Bottom line
+
+The literature already contains most of the ingredients, but not yet the framework that combines them. SPECT has mature geometric calibration methods [@Beq03; @Beq05], early software compensation inside reconstruction [@Li95], perturbative software refinement [@Def08], and response-aware calibration coupled to reconstruction [@Hav08; @Bit13]. It also has proof that OptiX-style ray tracing can accelerate forward modeling [@Pie15]. CT and X-ray now show how geometry and motion can be optimized through differentiable projectors [@Kim23; @Thi22; @Jia25c; @Jia25b; @Jia26].
+
+The new idea is to join these strands into a **differentiable ray-traced SPECT framework** where calibration is the first practical application and AI-connected differentiable physics is the broader agenda. This is not only a proposal for a better calibration method. It is a proposal for a new way to build and use emission-tomography forward models.
+
+
+::: {#ref}
+:::

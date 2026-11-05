@@ -1,0 +1,299 @@
+
+Starting python3 kernel...Done
+
+Executing 'error_budget.quarto_ipynb'
+  Cell 1/5: ''...Done
+  Cell 2/5: ''...Done
+  Cell 3/5: ''...Done
+  Cell 4/5: ''...Done
+  Cell 5/5: ''...Done
+
+[1mpandoc [22m
+  to: revealjs
+  output-file: error_budget.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+    - eb.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: Error budget of the unscattered reconstruction
+  subtitle: Small Jaszczak, Tc-99m, 80.4 M unscattered counts · OSEM 8 with the 2 mm Gate SRM · which factor costs how much
+  author: Fang Han
+  date: '2026-10-19'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  lightbox: true
+  
+Output created: error_budget.html
+
+[32mWatching files for changes[39m
+[32mBrowse at [39m[4m[32mhttp://localhost:4202/error_budget.html[39m[24m
+Listening on http://127.0.0.1:4202/
+[31mGET: / (404: Not Found)[39m
+[31mGET: / (404: Not Found)[39m
+
+Starting python3 kernel...Done
+
+Executing 'error_budget.quarto_ipynb'
+  Cell 1/6: ''...Done
+  Cell 2/6: ''...Done
+  Cell 3/6: ''...Done
+  Cell 4/6: ''...Done
+  Cell 5/6: ''...Done
+  Cell 6/6: ''...Done
+
+[1mpandoc [22m
+  to: revealjs
+  output-file: error_budget.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+    - eb.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: Error budget of the unscattered reconstruction
+  subtitle: Small Jaszczak, Tc-99m, 80.4 M unscattered counts · OSEM 8 with the 2 mm Gate SRM · which factor costs how much
+  author: Fang Han
+  date: '2026-10-19'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  lightbox: true
+  
+Output created: error_budget.html
+
+[32mWatching files for changes[39m
+[31m  /extensions/MathMenu.js (404: Not Found)[39m
+[31m  /extensions/MathZoom.js (404: Not Found)[39m
+[31m  /extensions/MathMenu.js (404: Not Found)[39m
+[31m  /extensions/MathZoom.js (404: Not Found)[39m
+[31m  /extensions/MathMenu.js (404: Not Found)[39m
+[31m  /extensions/MathZoom.js (404: Not Found)[39m
+[31m  /extensions/MathMenu.js (404: Not Found)[39m
+[31m  /extensions/MathZoom.js (404: Not Found)[39m
+[31m  /extensions/MathMenu.js (404: Not Found)[39m
+[31m  /extensions/MathZoom.js (404: Not Found)[39m
+[31m  /extensions/MathMenu.js (404: Not Found)[39m
+[31m  /extensions/MathZoom.js (404: Not Found)[39m
+
+Starting python3 kernel...Done
+
+Executing 'error_budget.quarto_ipynb'
+  Cell 1/6: ''...Done
+  Cell 2/6: ''...Done
+  Cell 3/6: ''...Done
+  Cell 4/6: ''...Done
+  Cell 5/6: ''...Done
+  Cell 6/6: ''...Done
+
+[1mpandoc [22m
+  to: revealjs
+  output-file: error_budget.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+    - eb.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: Error budget of the unscattered reconstruction
+  subtitle: Small Jaszczak, Tc-99m, 80.4 M unscattered counts · OSEM 8 with the 2 mm Gate SRM · which factor costs how much
+  author: Fang Han
+  date: '2026-10-19'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  lightbox: true
+  
+Output created: error_budget.html
+
+[32mWatching files for changes[39m
+
+Starting python3 kernel...Done
+
+Executing 'error_budget.quarto_ipynb'
+  Cell 1/6: ''...Done
+  Cell 2/6: ''...Done
+  Cell 3/6: ''...Done
+  Cell 4/6: ''...Done
+  Cell 5/6: ''...Done
+  Cell 6/6: ''...Done
+
+[1mpandoc [22m
+  to: revealjs
+  output-file: error_budget.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+    - eb.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: Error budget of the unscattered reconstruction
+  subtitle: Small Jaszczak, Tc-99m, 80.4 M unscattered counts · OSEM 8 with the 2 mm Gate SRM · which factor costs how much
+  author: Fang Han
+  date: '2026-10-19'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  lightbox: true
+  
+Output created: error_budget.html
+
+[32mWatching files for changes[39m
+[1mpandoc [22m
+  to: revealjs
+  output-file: error_budget.html
+  standalone: true
+  embed-resources: true
+  wrap: none
+  default-image-extension: png
+  html-math-method: mathjax
+  slide-level: 2
+  css:
+    - slides.css
+    - eb.css
+  
+[1mmetadata[22m
+  link-citations: true
+  width: 1600
+  height: 900
+  margin: 0.06
+  center: false
+  navigationMode: linear
+  controlsLayout: bottom-right
+  controlsTutorial: false
+  hash: true
+  history: true
+  hashOneBasedIndex: false
+  fragmentInURL: false
+  transition: none
+  backgroundTransition: none
+  pdfSeparateFragments: false
+  lang: en
+  auto-stretch: true
+  title: Error budget of the unscattered reconstruction
+  subtitle: Small Jaszczak, Tc-99m, 80.4 M unscattered counts · OSEM 8 with the 2 mm Gate SRM · which factor costs how much
+  author: Fang Han
+  date: '2026-10-19'
+  date-format: MMMM YYYY
+  slideNumber: true
+  theme:
+    - default
+    - keynote.scss
+  progress: true
+  controls: true
+  menu: true
+  lightbox: true
+  
+Output created: error_budget.html
+
+[32mWatching files for changes[39m

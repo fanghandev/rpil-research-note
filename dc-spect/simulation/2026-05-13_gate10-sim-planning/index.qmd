@@ -1,0 +1,34 @@
+---
+title: Dynamic Cardiac SPECT GATE-10 MC Simulation Planning
+authors:
+  - name: Fang Han
+    affiliation: Mass General Brigham/Harvard Medical School
+    roles: writing
+    corresponding: true
+# bibliography: references.bib
+---
+
+## Counts Distribution of `UAMC` System Response Matrix, All 80 Heads
+
+![Counts Distribution of `UAMC` System Response Matrix](images/UAMC_SRM_Readings_Distribution.png)
+
+Total detected count is 20,432,378,693, roughly 20 billion.
+
+## Estimation of the Needed Statistics for Larger FOV
+
+If we assume overall averaged system sensitivity of 0.062%, then the total emitted primary gammas required is approximately:
+$$32,955,449,504,838$$
+Roughly 32 trillion primary gammas is needed to get the UAMC SRM with 80 heads each $25 \times 25$
+projections and 1,000,000 FOV voxels, for a 150 mm $\times$ 150 mm $\times$ 150 mm FOV with 1.5 mm isotropic
+voxel size.
+
+For a bigger FOV of $171 \, \text{mm} \times 171 \, \text{mm} \times 171 \, \text{mm}$ with 1.5 mm isotropic voxel size, we will have $114^3 = 1,481,544$ voxels, and the total emitted primary gammas will be approximately:
+$$
+\frac{1,481,544}{1,000,000} \times 32,955,449,504,838 = 48,824,948,481,195
+$$
+which is approximately 50 trillion primary gammas.
+
+### Addtional FOV Region Only
+
+Previous calculation shows that the number of emitted gamma rays needed per **FOV voxel** is about $3.3 \times 10^7$, or $33$ million.
+Thus the additional .5 million voxels require an extra **16 trillion** emitted primary gammas.

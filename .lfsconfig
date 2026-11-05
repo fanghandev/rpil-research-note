@@ -1,0 +1,5 @@
+# Git LFS settings shared by every clone (see README.md, "Large files").
+# Zip archives of bulk plot sets are not downloaded on clone/pull; fetch them on demand:
+#   git lfs pull --include="dc-spect/srm/uamc-srm-head-maps/archives/*" --exclude=""
+[lfs]
+	fetchexclude = **/archives/**

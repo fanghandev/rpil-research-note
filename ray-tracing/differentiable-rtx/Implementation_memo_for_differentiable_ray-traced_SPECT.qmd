@@ -1,0 +1,487 @@
+---
+title: Implementation memo for differentiable ray-traced SPECT
+author: Fang Han
+format:
+    html:
+        toc: true
+    typst:
+        toc: true
+        toc-depth: 2
+    pdf:
+        pdf-engine: latexmk
+            
+
+bibliography: references.bib
+csl: american-medical-association-10th-edition.csl
+---
+
+
+## Aim
+
+The implementation target is a **reconstruction-oriented SPECT framework** that combines:
+
+- ray-traced or tessellated system geometry
+- matched forward and adjoint operators
+- differentiable or analytically differentiable geometry parameters
+- calibration-aware reconstruction
+- later hooks for richer physics and AI integration
+
+The first deliverable is not a full Monte Carlo platform. It is a **geometry-aware, calibration-aware projector framework** that can be used repeatedly inside optimization. That scope is consistent with the historical SPECT calibration literature [@Li95; @Beq03; @Beq05; @Def08; @Hav08; @Bit13], the OptiX precedent [@Pie15], and the CT differentiable operator literature [@Kim23; @Thi22; @Jia25c; @Jia25b; @Jia26].
+
+## System boundary
+
+### In scope for version 1
+
+- pinhole or multi-pinhole SPECT
+- rigid detector / collimator pose mismatch
+- ray-traced geometric response
+- optional attenuation term
+- calibration from point-source and phantom data
+- iterative reconstruction with fixed or updated geometry
+- PyTorch-facing interface or equivalent autograd API
+
+### Out of scope for version 1
+
+- full coupled Monte Carlo transport
+- full differentiable scatter transport
+- detector optical-photon transport
+- deformable motion
+- vendor-complete clinical workflow integration
+
+## Recommended first target system
+
+The best first target is **rotating pinhole SPECT**.
+
+Reasons:
+
+- calibration sensitivity is well established [@Li95; @Beq03; @Beq05; @Def08]
+- geometry is rich enough to justify the framework
+- point-source baselines are standard and easy to reproduce [@Beq03; @Beq05]
+- software refinement has clear precedent [@Li95; @Def08]
+- a stationary multi-pinhole extension can come later, informed by [@Hav08]
+
+## Core abstractions
+
+The framework should be organized around five abstractions.
+
+| Abstraction           | Role                                                | Notes                                                      |
+| :-------------------- | :-------------------------------------------------- | :--------------------------------------------------------- |
+| `SceneGeometry`       | mesh/tessellated representation of scanner geometry | collimator, detector plane, focal points, shielding, orbit |
+| `AcquisitionGeometry` | parameterized scan state                            | angle-wise poses, COR, tilt, twist, focal length, shifts   |
+| `Projector`           | forward model $y=A(\theta)x$                        | geometry-aware, reconstruction-facing, not full MC         |
+| `AdjointProjector`    | matched backprojector $A(\theta)^T$                 | exact or numerically matched adjoint                       |
+| `CalibrationModel`    | parameter update layer                              | losses, regularization, optimizer hooks                    |
+
+The `Projector` and `AdjointProjector` should be treated as the center of the framework. This follows the design logic of [@Kim23] and [@Jia25c], while the geometry-update logic follows the direction of [@Thi22], [@Jia25b], and [@Jia26].
+
+## Parameterization
+
+The initial calibration variable should be a low-dimensional parameter vector:
+
+$$
+\theta = [\Delta c_x, \Delta c_y, \Delta r, \Delta t_x, \Delta t_y, \Delta t_z, \Delta \phi, \Delta \psi, \Delta f, \Delta e_u, \Delta e_v]
+$$
+
+where the exact subset depends on the scanner class.
+
+### Minimum parameter set for version 1
+
+| Parameter                            | Meaning                         | Motivation                                     |
+| :----------------------------------- | :------------------------------ | :----------------------------------------------|
+| $\Delta c_x, \Delta c_y$             | center-of-rotation offset       | historically critical in pinhole SPECT [@Li95] |
+| $\Delta t_x, \Delta t_y, \Delta t_z$ | detector/collimator translation | captures installation mismatch                 |
+| $\Delta \phi, \Delta \psi$           | tilt and twist                  | critical parameters in [@Beq03]                |
+| $\Delta e_u, \Delta e_v$             | electrical shifts               | part of standard calibration model [@Beq03]    |
+
+### Optional version 1.5 parameters
+
+- orbit radius bias
+- focal length bias
+- per-angle rigid perturbations
+- effective pinhole diameter
+- detector blur width
+
+These optional parameters are supported by the calibration and response-modeling literature [@Beq05; @Def08; @Hav08; @Bit13].
+
+## Geometry representation
+
+### Recommendation
+
+Use a **hybrid geometry model**.
+
+| Component                     | Representation                     |
+| :---------------------------- | :--------------------------------- |
+| Collimator body and shielding | triangle mesh / tessellated solids |
+| Pinhole aperture model        | analytic primitive or local mesh   |
+| Detector plane                | analytic plane with pixel grid     |
+| Object volume                 | voxel volume                       |
+| Orbit                         | parameterized rigid transforms     |
+
+This hybrid approach is more practical than forcing every component into one representation. It also mirrors the flexibility already shown in [@Pie15], which supported voxels, triangle meshes, and analytic shapes in one OptiX-based framework.
+
+### Why hybrid is better than pure mesh
+
+- detector indexing remains simple
+- voxel image representation stays compatible with reconstruction
+- geometric complexity is placed where it matters most: collimator and scanner hardware
+- analytic pieces remain available for speed-critical subroutines
+
+## Forward model design
+
+The version 1 forward model should be deterministic or quasi-deterministic.
+
+### Base equation
+
+$$
+y = A(\theta)x
+$$
+
+with optional factorization:
+
+$$
+A(\theta) = D(\theta) \, P(\theta) \, T
+$$
+
+where:
+
+- $T$ is an attenuation or transmission-like term if included
+- $P(\theta)$ is the geometric projector using ray-traced geometry
+- $D(\theta)$ is a detector-response or blur operator
+
+This factorization is useful because it separates:
+
+- geometry-sensitive traversal
+- detector-response modeling
+- optional correction modules
+
+That separation is consistent with the spirit of [@Bit13], where expensive response estimation is separated from geometry-specific SRM generation.
+
+### Version 1 projector choices
+
+Three candidate projectors should be implemented in increasing complexity.
+
+| Mode       | Description                                              | Purpose                                 |
+| :--------- | :------------------------------------------------------- | :-------------------------------------- |
+| `GeoOnly`  | geometric pinhole response                               | baseline debugging and fast calibration |
+| `GeoAtten` | geometric response + attenuation                         | first reconstruction-ready mode         |
+| `GeoResp`  | geometric response + parametric detector blur / response | bridge toward [@Bit13] and [@Hav08]   |
+
+The first paper can likely rely on `GeoOnly` and `GeoAtten`, with `GeoResp` as an extension.
+
+## Adjoint design
+
+A matched adjoint is not optional. It is required if the framework is to support iterative reconstruction and stable optimization [@Kim23; @Jia25c].
+
+### Recommendation
+
+For each projector mode, implement:
+
+- forward(x, theta) -> y
+- adjoint(y, theta) -> x_back
+
+The adjoint should be validated numerically by inner-product testing:
+
+$$
+\langle A(\theta)x, y \rangle \approx \langle x, A(\theta)^T y \rangle
+$$
+
+for random test inputs.
+
+### Acceptance criterion
+
+Relative mismatch in the adjoint test should be pushed below a small tolerance before any calibration experiments are trusted.
+
+## Differentiation strategy
+
+The implementation should support both **interface-level autograd** and **custom analytical gradients**.
+
+### Why both
+
+Autograd gives rapid integration with AI workflows [@Kim23; @Jia25c]. Analytical gradients are likely needed for memory and speed once geometry parameters are optimized repeatedly [@Thi22; @Jia25b; @Jia26].
+
+### Recommended staged plan
+
+| Stage | Gradient method                                             | Use                     |
+| :---- | :---------------------------------------------------------- | :---------------------- |
+| 1     | finite differences                                          | debugging only          |
+| 2     | autograd wrapper around differentiable parameter transforms | early prototype         |
+| 3     | custom analytical gradients for geometry parameters         | main calibration engine |
+
+### Initial analytical gradient target
+
+The first analytical gradients should be for:
+
+- COR offsets
+- detector translations
+- tilt / twist
+- electrical shifts
+
+This keeps the problem close to [@Thi22], [@Jia25b], and [@Jia26], where geometry/motion gradients are derived for the projector or reconstruction operator.
+
+## Software stack
+
+### Backend
+
+A practical backend split is:
+
+| Layer                  | Suggested implementation                                 |
+| :--------------------- | :------------------------------------------------------- |
+| Geometry/ray traversal | OptiX-capable path or equivalent GPU ray-tracing backend |
+| Custom kernels         | CUDA C++                                                 |
+| High-level bindings    | C++ to Python via pybind11 or similar                    |
+| Autograd interface     | PyTorch custom `autograd.Function`                       |
+
+If OptiX is not used in the first prototype, the API should still be written so that the geometry traversal backend is swappable. That avoids overcommitting the design to one vendor path.
+
+### High-level API sketch
+
+```python
+scene = SceneGeometry(...)
+acq = AcquisitionGeometry(...)
+proj = Projector(scene, mode="GeoAtten")
+back = AdjointProjector(scene, mode="GeoAtten")
+
+theta = CalibrationParameters(..., requires_grad=True)
+
+y_hat = proj(x, acq, theta)
+loss = projection_loss(y_hat, y_meas)
+loss.backward()
+```
+
+And for analytical gradients:
+
+```python
+grad_theta = proj.geometry_grad(x, y_meas, acq, theta, loss_type="projection")
+```
+
+## Calibration modes
+
+The framework should support three calibration modes from the start.
+
+| Mode             | Data                                    | Purpose                                                     |
+| :--------------- | :-------------------------------------- | :---------------------------------------------------------- |
+| `PhantomCal`     | point-source or geometric phantom       | baseline comparison to standard literature [@Beq03; @Beq05] |
+| `ResidualRefine` | point-source scan + initial calibration | modern version of [@Def08]                                 |
+| `JointReconCal`  | object or phantom data                  | differentiable software calibration inside reconstruction   |
+
+### Recommended first evaluation order
+
+1.  `PhantomCal`
+2.  `ResidualRefine`
+3.  `JointReconCal`
+
+This order minimizes ambiguity and aligns with the literature’s maturity.
+
+## Loss functions
+
+### Calibration losses
+
+| Loss                               | Use case                               |
+| :--------------------------------- | :------------------------------------- |
+| projection coordinate error        | point-source geometry fitting          |
+| projection intensity MSE           | phantom forward-model fitting          |
+| normalized cross-correlation       | robust matching when scale is unstable |
+| reconstruction sharpness / entropy | self-calibration or motion refinement  |
+
+The first calibration experiments should use **projection-domain losses** because they are easier to interpret and compare to [@Beq03], [@Beq05], and [@Def08]. Reconstruction-domain losses can follow.
+
+### Regularization
+
+To stabilize geometry estimation:
+
+- penalize deviation from physical QC estimate
+- enforce temporal smoothness across angles for per-view parameters
+- constrain selected parameters to realistic bounds
+
+This is especially important because some geometry parameters are correlated [@Beq03].
+
+## Data plan
+
+### Required datasets for version 1
+
+| Dataset                             | Purpose                                         |
+| :---------------------------------- | :---------------------------------------------- |
+| three-point-source calibration scan | direct baseline against [@Beq03], [@Beq05]    |
+| displaced-COR phantom scan          | reproduce [@Li95] style compensation problem   |
+| point-source grid or PSF scan       | response-model validation inspired by [@Hav08] |
+| simple reconstruction phantom       | image-quality evaluation                        |
+
+### Nice-to-have datasets
+
+- micro-Derenzo or rod phantom
+- mild orbit mismatch scan
+- repeated scans with deliberate geometry perturbation
+
+The deliberate perturbation dataset would be especially valuable for peer review because it turns the proposal from a conceptual framework into a falsifiable calibration study.
+
+## Validation experiments
+
+### Experiment 1: geometric forward-model sanity
+
+Goal:
+
+- validate ray-traced projector against a conventional reference on ideal geometry
+
+Outputs:
+
+- projection residuals
+- runtime
+- adjoint consistency
+
+### Experiment 2: COR recovery
+
+Goal:
+
+- recover known COR displacement from simulated or controlled phantom data
+
+Compare:
+
+- fixed model
+- explicit software compensation in the spirit of [@Li95]
+- differentiable calibration
+
+Outputs:
+
+- recovered COR error
+- image quality improvement
+
+### Experiment 3: seven-parameter calibration subset
+
+Goal:
+
+- compare against three-point-source calibration baselines from [@Beq03] and [@Beq05]
+
+Outputs:
+
+- parameter recovery
+- sensitivity to source placement noise
+- robustness to phantom model error
+
+### Experiment 4: residual refinement after conventional calibration
+
+n Goal:
+
+- emulate [@Def08] and test whether differentiable refinement improves on a standard initial calibration
+
+Outputs:
+
+- projection residual reduction
+- image sharpness gain
+- robustness to initialization
+
+### Experiment 5: response-aware extension
+
+Goal:
+
+- add a simple detector-response term and compare geometric-only versus geometry-plus-response calibration
+
+Motivation:
+
+- connect to [@Bit13] and [@Hav08]
+
+## Evaluation metrics
+
+| Category               | Metrics                                                                 |
+| :--------------------- | :---------------------------------------------------------------------- |
+| Geometry recovery      | absolute parameter error, pose error                                    |
+| Projection fidelity    | MSE, NCC, residual maps                                                 |
+| Reconstruction quality | resolution, contrast recovery, artifact index                           |
+| Optimization quality   | convergence rate, initialization sensitivity                            |
+| Efficiency             | wall-clock time, GPU memory, scaling with views and geometry complexity |
+
+## Baselines
+
+The memo should commit to explicit baselines.
+
+| Baseline                                     | Why it matters                                                                         |
+| :------------------------------------------- | :------------------------------------------------------------------------------------- |
+| conventional analytic or voxelized projector | isolates value of ray-traced geometry                                                  |
+| fixed geometry after standard calibration    | isolates value of software refinement                                                  |
+| perturbative refinement baseline             | compares against strongest pre-differentiable software-calibration precedent [@Def08] |
+| response-table strategy if available         | compares against [@Bit13] style adaptation                                            |
+
+## Physics extension plan
+
+### Scatter
+
+Do not begin with full differentiable scatter transport.
+
+Recommended order:
+
+1.  no scatter
+2.  simple additive or kernel scatter term
+3.  MC-derived scatter surrogate
+4.  only later, richer transport module
+
+This follows the broader proposal logic that the framework should be lighter than full MC while remaining extensible.
+
+### Detector response
+
+Detector response is the best first physics extension after geometry.
+
+Recommended order:
+
+1.  Gaussian blur term
+2.  position-dependent blur
+3.  lookup-table response inspired by [@Hav08] and [@Bit13]
+
+### Optical light
+
+Treat optical transport as a future detector-physics module, not part of the first paper. It is important for the long-term framework vision but too far from the first calibration milestone.
+
+## Risks and mitigations
+
+| Risk                                             | Mitigation                                                       |
+| :----------------------------------------------- | :--------------------------------------------------------------- |
+| Geometry gradients are unstable                  | start with low-dimensional parameters and projection-domain loss |
+| Parameter correlations cause non-identifiability | regularize to QC estimate; restrict active parameter subsets     |
+| Ray tracing gives little speedup                 | keep backend swappable; validate where traversal dominates cost  |
+| Adjoint mismatch harms optimization              | enforce inner-product tests before calibration studies           |
+| Rich physics slows development                   | keep response and scatter modular                                |
+
+## Recommended milestone sequence
+
+### Milestone 1
+
+- ideal-geometry forward projector
+- matched adjoint
+- basic PyTorch wrapper
+
+### Milestone 2
+
+- COR and rigid pose parameters exposed
+- finite-difference and autograd validation
+
+### Milestone 3
+
+- analytical gradients for selected geometry parameters
+- calibration on point-source phantom
+
+### Milestone 4
+
+- differentiable residual refinement after standard calibration
+- reconstruction experiments on mismatch data
+
+### Milestone 5
+
+- detector-response extension
+- AI-facing example workflow
+
+## First-paper implementation target
+
+The implementation target for the first paper should be:
+
+- rotating pinhole SPECT
+- ray-traced geometric projector
+- matched adjoint
+- differentiable COR, tilt/twist, and pose refinement
+- calibration and reconstruction experiments against conventional baselines
+
+That is enough to support a strong peer-facing paper without overextending into full MC or full detector physics.
+
+## Bottom line
+
+The implementation should be organized around a simple principle: **build the forward operator as a reusable differentiable object, then let calibration become an optimization problem over that object**. The literature already supports each ingredient separately: conventional calibration models [@Beq03; @Beq05], reconstruction-embedded compensation [@Li95], perturbative software refinement [@Def08], response-aware system modeling [@Hav08; @Bit13], ray-tracing acceleration [@Pie15], and differentiable operator design [@Kim23; @Thi22; @Jia25c; @Jia25b; @Jia26]. The work now is to join them into one coherent engineering system.
+
+::: {#ref}
+:::

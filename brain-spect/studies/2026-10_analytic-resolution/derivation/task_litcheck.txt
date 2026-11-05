@@ -1,0 +1,31 @@
+Literature check for the square knife-edge pinhole derivation. Working directory:
+~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-28_analytic_resolution/derivation
+Write ONLY literature_check.md here.
+
+PDFs, all in ~/Work/RPIL/QMIRT/pytorch-optix/references/pinhole-collimator/ (ignore the ._ files). Read them with the Read tool (pages parameter):
+- Analytic_Determination_of_Rectangular-Pinhole_Sensitivity_With_Penetration.pdf (Metzler & Moore, IEEE TMI 2020);
+- Analytic_determination_of_the_resolution-equivalent_effective_diameter_of_a_pinhole_collimator.pdf (Accorsi & Metzler, TMI 2004);
+- Analytic_determination_of_the_pinhole_collimators_point-spread_function_and_RMS_resolution_with_penetration.pdf (Metzler et al., TMI 2002);
+- Metzler_2005_Phys._Med._Biol._50_5005.pdf;
+- Johnson_2016_Phys._Med._Biol._61_2003.pdf;
+- "Medical Physics - 2016 - Moore - Design of a dual-resolution collimator ... .pdf".
+
+Our claims are in square_pinhole.md (§2 cross-check, §3.2-3.3, §4 literature) and crosscheck_tables.py (the transcription of M&M eq. 22/25 used there). For each claim, verify it against the PDF and quote the exact equation (LaTeX) with its number and page:
+1. M&M 2020 eq. (22) closed-form rectangular sensitivity with penetration, and eq. (25) at normal incidence.
+   - Transcribe both exactly, including all definitions (h, θ_x, θ_y, τ, α_x, α_y, μ, w_x, w_y).
+   - Compare symbol by symbol with crosscheck_tables.py's implementation. Report any transcription difference.
+   - State the conditions of validity (zones, ranges of θ) and the geometry assumed: double-sided, no channel?
+2. M&M 2020 claims: is there any resolution or FWHM formula? Penumbra (eqs. 26-29)? Validation numbers (0.16 %, 0.29 %)?
+3. AM2004 eqs. (4)-(5), (22), (25), (29) and §V: exact transcription, and whether they concern round knife edges only.
+4. Metzler 2002: PRF eq. (6), RMS (7)-(8), the p.886 remark on aperture shape.
+5. M&A 2005: eqs. 5-6, the appendix A.1-A.3 forms, and the experimental conclusion (Paix overestimates, etc.).
+6. Johnson 2016: what exactly they computed (ray-traced LSF FWHM?); whether any closed-form square FWHM is given; the 0.364 vs 0.414 mm numbers and their conditions.
+7. Moore 2016: eqs. (1)-(3), whether d_eff = d + ln2 tanα/μ is applied to a square side, and the definition of α (half-angle in the direction considered?).
+8. **Absence claim.** Across these six papers, plus their reference lists (look for later or earlier square/rectangular-pinhole resolution papers), is there any closed-form FWHM or resolution formula for a square or rectangular knife-edge pinhole with penetration at oblique incidence? List candidate papers from the reference lists that might contain one, with full citations, so they can be checked.
+
+Output, in literature_check.md:
+- a table of claims, each marked confirmed / corrected / not supported, with the quotes;
+- the exact transcriptions;
+- the absence-claim assessment with the candidate list.
+
+Reply with a summary under 250 words, including any correction needed in square_pinhole.md or crosscheck_tables.py.

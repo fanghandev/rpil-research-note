@@ -1,0 +1,178 @@
+{
+ "grow_R080": {
+  "10": {
+   "plateau": 1.0123378038406372,
+   "overshoot_pct": 7.725095748901367,
+   "peak_mm_from_edge": -14.5,
+   "undershoot_pct": 0.6986498832702637
+  },
+  "20": {
+   "plateau": 0.9847477078437805,
+   "overshoot_pct": 14.827644348144531,
+   "peak_mm_from_edge": -11.5,
+   "undershoot_pct": -0.4226863384246826
+  },
+  "50": {
+   "plateau": 1.0019080638885498,
+   "overshoot_pct": 15.052032470703125,
+   "peak_mm_from_edge": -8.5,
+   "undershoot_pct": -4.71981143951416
+  },
+  "100": {
+   "plateau": 1.0089704990386963,
+   "overshoot_pct": 14.398443222045898,
+   "peak_mm_from_edge": -7.5,
+   "undershoot_pct": -6.387871742248535
+  },
+  "200": {
+   "plateau": 1.003225564956665,
+   "overshoot_pct": 14.215362548828125,
+   "peak_mm_from_edge": -6.5,
+   "undershoot_pct": -5.5520830154418945
+  },
+  "200_postfilter_6mm": {
+   "plateau": 1.0031776428222656,
+   "overshoot_pct": 7.328498363494873,
+   "peak_mm_from_edge": -7.5,
+   "undershoot_pct": -4.090845584869385
+  },
+  "200_postfilter_10mm": {
+   "plateau": 1.0025924444198608,
+   "overshoot_pct": 1.6416668891906738,
+   "peak_mm_from_edge": -10.5,
+   "undershoot_pct": -2.2520720958709717
+  }
+ },
+ "grow_R095": {
+  "10": {
+   "plateau": 1.013298749923706,
+   "overshoot_pct": 3.820633888244629,
+   "peak_mm_from_edge": -14.5,
+   "undershoot_pct": 0.5165934562683105
+  },
+  "20": {
+   "plateau": 0.9919586777687073,
+   "overshoot_pct": 10.785568237304688,
+   "peak_mm_from_edge": -11.5,
+   "undershoot_pct": 0.1965165138244629
+  },
+  "50": {
+   "plateau": 0.9987520575523376,
+   "overshoot_pct": 12.865161895751953,
+   "peak_mm_from_edge": -8.5,
+   "undershoot_pct": -2.8875231742858887
+  },
+  "100": {
+   "plateau": 1.0049669742584229,
+   "overshoot_pct": 12.337064743041992,
+   "peak_mm_from_edge": -7.5,
+   "undershoot_pct": -4.00242805480957
+  },
+  "200": {
+   "plateau": 1.001523733139038,
+   "overshoot_pct": 12.836969375610352,
+   "peak_mm_from_edge": -5.5,
+   "undershoot_pct": -3.476870059967041
+  },
+  "200_postfilter_6mm": {
+   "plateau": 1.0015548467636108,
+   "overshoot_pct": 5.9876203536987305,
+   "peak_mm_from_edge": -7.5,
+   "undershoot_pct": -2.4690210819244385
+  },
+  "200_postfilter_10mm": {
+   "plateau": 1.001295566558838,
+   "overshoot_pct": 0.9612560272216797,
+   "peak_mm_from_edge": -10.5,
+   "undershoot_pct": -1.3226509094238281
+  }
+ },
+ "grow_R100": {
+  "10": {
+   "plateau": 1.0092493295669556,
+   "overshoot_pct": 1.565861701965332,
+   "peak_mm_from_edge": -14.5,
+   "undershoot_pct": 0.33087730407714844
+  },
+  "20": {
+   "plateau": 0.996243417263031,
+   "overshoot_pct": 6.7497968673706055,
+   "peak_mm_from_edge": -12.5,
+   "undershoot_pct": 0.18728971481323242
+  },
+  "50": {
+   "plateau": 0.9975150227546692,
+   "overshoot_pct": 9.919536590576172,
+   "peak_mm_from_edge": -8.5,
+   "undershoot_pct": -1.7588257789611816
+  },
+  "100": {
+   "plateau": 1.0029418468475342,
+   "overshoot_pct": 10.942279815673828,
+   "peak_mm_from_edge": -7.5,
+   "undershoot_pct": -2.6411354541778564
+  },
+  "200": {
+   "plateau": 1.001078724861145,
+   "overshoot_pct": 11.646329879760742,
+   "peak_mm_from_edge": -5.5,
+   "undershoot_pct": -2.7292490005493164
+  },
+  "200_postfilter_6mm": {
+   "plateau": 1.0010277032852173,
+   "overshoot_pct": 5.268263816833496,
+   "peak_mm_from_edge": -7.5,
+   "undershoot_pct": -1.8342852592468262
+  },
+  "200_postfilter_10mm": {
+   "plateau": 1.0007832050323486,
+   "overshoot_pct": 0.796210765838623,
+   "peak_mm_from_edge": -10.5,
+   "undershoot_pct": -0.9535253047943115
+  }
+ },
+ "grow_R105": {
+  "10": {
+   "plateau": 1.0002700090408325,
+   "overshoot_pct": -0.024336576461791992,
+   "peak_mm_from_edge": -14.5,
+   "undershoot_pct": 0.00940561294555664
+  },
+  "20": {
+   "plateau": 0.9999544620513916,
+   "overshoot_pct": 0.164031982421875,
+   "peak_mm_from_edge": -14.5,
+   "undershoot_pct": 0.0042438507080078125
+  },
+  "50": {
+   "plateau": 0.9998226165771484,
+   "overshoot_pct": 0.32732486724853516,
+   "peak_mm_from_edge": -10.5,
+   "undershoot_pct": -0.0390470027923584
+  },
+  "100": {
+   "plateau": 1.0000380277633667,
+   "overshoot_pct": 0.4499673843383789,
+   "peak_mm_from_edge": -8.5,
+   "undershoot_pct": -0.08042454719543457
+  },
+  "200": {
+   "plateau": 1.000076174736023,
+   "overshoot_pct": 0.5890607833862305,
+   "peak_mm_from_edge": -7.5,
+   "undershoot_pct": -0.11741518974304199
+  },
+  "200_postfilter_6mm": {
+   "plateau": 1.0000598430633545,
+   "overshoot_pct": 0.25238990783691406,
+   "peak_mm_from_edge": -9.5,
+   "undershoot_pct": -0.0766456127166748
+  },
+  "200_postfilter_10mm": {
+   "plateau": 1.0000280141830444,
+   "overshoot_pct": -0.003892183303833008,
+   "peak_mm_from_edge": -14.5,
+   "undershoot_pct": -0.04118680953979492
+  }
+ }
+}

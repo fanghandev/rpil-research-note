@@ -1,0 +1,26 @@
+Revise the weekly report (report.qmd, references.bib, scripts/make_figures.py, _header.typ) in this folder using three reviews:
+- review/review_fact.md: fact-check. Fix ALL errors and imprecise items.
+- review/review_format.md: editorial. Do all MUST items and as many SHOULD/COULD items as fit.
+- review/review_cite.md: citations.
+  - Apply the bib fixes: feng2024dc replaces feng2022dc; goorden2009, with goorden2008 if needed, replaces rentmeester2008.
+  - Restore ogawa1991, jan2004, sarrut2022, hudson1994, dewaraja2006, lai2018 and mandot2025 where the text mentions them.
+  - Add sabet2012 (LIOB) and zhang2026 (converging-pixel CsI:Tl decoding) in the detector section.
+  - Soften the claims it flags: DC-SPECT is "similar", not "like for like", and the rule's origin is "our inference"; "we found no closed-form FWHM" for the square; Metzler & Moore 2020 eq. numbers are "transcribed via a PDF agent, to be confirmed"; the DB-SPECT abstract is unverified wording; the Zannoni CNR/CRC numbers are from bar-chart labels, in the table note only.
+
+Also apply these notes from the project lead:
+1. **Reconstructed-slice figures** (wp4_slices_jaszczak, wp4_slices_derenzo_triple): the gammart rows (~5 M counts, 64 iterations, unfiltered) are too noisy to show the correction effect, and the reference panels float between rows.
+   - Show the images after a stated 3D Gaussian post-filter (FWHM 6 mm) on all panels, identically; the metrics stay unfiltered.
+   - Put the primary-only reference as a regular 4th column, in the gammart rows only. Leave the GATE-row cell with a short note "no primary-only GATE data".
+   - One shared grey scale per row: normalise each panel to the mean of the uniform background region of its own slice and clip at 0-1.3.
+   - Scale bar on the first panel of each row; colour bar once.
+2. The WP4 statements must match the corrected plan (pytorch-optix/docs/paper2_plan.md, WP4 section, lines marked "corrected 2026-10-30").
+3. The edge strip is PROPOSED (decision pending), not FINAL.
+4. Keep the main text at no more than 15 pages.
+
+Then:
+- run build.sh;
+- re-render page images (pdftoppm -r 60 report.pdf /tmp/claude-1002/weekly_pages2/p) and inspect EVERY page;
+- iterate until the layout is clean;
+- append to ingredients/draft_log.md a "Revision 1" section listing each review item as done, or not done with the reason.
+
+Reply with a summary under 250 words.

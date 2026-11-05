@@ -1,0 +1,134 @@
+{
+ "decoding_factor": {
+  "converging": 1.7917507333370537,
+  "parallel": 1.4091386756825615
+ },
+ "options": {
+  "2 mm parallel pixels": {
+   "R_i_mm": 11.08,
+   "apertures": {
+    "A": {
+     "rel_sensitivity": 1.0,
+     "R_mm": 12.11
+    },
+    "B": {
+     "rel_sensitivity": 1.598,
+     "R_mm": 12.83
+    },
+    "C": {
+     "rel_sensitivity": 2.994,
+     "R_mm": 14.4
+    },
+    "D": {
+     "rel_sensitivity": 6.889,
+     "R_mm": 18.15
+    }
+   }
+  },
+  "converging pixels, ideal decoding": {
+   "R_i_mm": 8.55,
+   "apertures": {
+    "A": {
+     "rel_sensitivity": 1.0,
+     "R_mm": 9.85
+    },
+    "B": {
+     "rel_sensitivity": 1.598,
+     "R_mm": 10.72
+    },
+    "C": {
+     "rel_sensitivity": 2.994,
+     "R_mm": 12.56
+    },
+    "D": {
+     "rel_sensitivity": 6.889,
+     "R_mm": 16.73
+    }
+   }
+  },
+  "2 mm parallel + LIOB decoding (est., \u00d71.41)": {
+   "R_i_mm": 15.62,
+   "apertures": {
+    "A": {
+     "rel_sensitivity": 1.0,
+     "R_mm": 16.36
+    },
+    "B": {
+     "rel_sensitivity": 1.598,
+     "R_mm": 16.9
+    },
+    "C": {
+     "rel_sensitivity": 2.994,
+     "R_mm": 18.12
+    },
+    "D": {
+     "rel_sensitivity": 6.889,
+     "R_mm": 21.23
+    }
+   }
+  },
+  "converging + LIOB decoding (est., \u00d71.79)": {
+   "R_i_mm": 15.32,
+   "apertures": {
+    "A": {
+     "rel_sensitivity": 1.0,
+     "R_mm": 16.08
+    },
+    "B": {
+     "rel_sensitivity": 1.598,
+     "R_mm": 16.62
+    },
+    "C": {
+     "rel_sensitivity": 2.994,
+     "R_mm": 17.87
+    },
+    "D": {
+     "rel_sensitivity": 6.889,
+     "R_mm": 21.01
+    }
+   }
+  },
+  "1 mm parallel pixels (hypothetical)": {
+   "R_i_mm": 5.54,
+   "apertures": {
+    "A": {
+     "rel_sensitivity": 1.0,
+     "R_mm": 7.39
+    },
+    "B": {
+     "rel_sensitivity": 1.598,
+     "R_mm": 8.51
+    },
+    "C": {
+     "rel_sensitivity": 2.994,
+     "R_mm": 10.74
+    },
+    "D": {
+     "rel_sensitivity": 6.889,
+     "R_mm": 15.41
+    }
+   }
+  },
+  "2 mm pixels, pinhole-detector 54 mm (hypothetical)": {
+   "R_i_mm": 5.54,
+   "apertures": {
+    "A": {
+     "rel_sensitivity": 1.0,
+     "R_mm": 6.22
+    },
+    "B": {
+     "rel_sensitivity": 1.598,
+     "R_mm": 6.68
+    },
+    "C": {
+     "rel_sensitivity": 2.994,
+     "R_mm": 7.67
+    },
+    "D": {
+     "rel_sensitivity": 6.889,
+     "R_mm": 9.97
+    }
+   }
+  }
+ }
+}

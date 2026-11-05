@@ -1,0 +1,23 @@
+Follow-up literature check for the square knife-edge pinhole derivation. Working directory:
+~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-28_analytic_resolution/derivation
+Read literature_check.md first, especially §4 ("Wider search"), then square_pinhole.md §3.2 (the side-width formulas W_x, W_y and the path-length model κ p (U+L)).
+
+Read these four PDFs in full (ignore the ._ files), all in ~/Work/RPIL/QMIRT/pytorch-optix/references/pinhole-collimator/:
+- Novak_2008_Phys._Med._Biol._53_953.pdf (slit-slat resolution and sensitivity vs incidence angle);
+- Derivation_and_Validation_of_a_Sensitivity_Formula_for_Slit-Slat_Collimation.pdf (Accorsi et al., TMI 2008);
+- Resolution-effective_diameters_for_asymmetric-knife-edge_pinhole_collimators.pdf (Accorsi & Metzler, TMI 2005);
+- Design_of_a_new_small-animal_SPECT_system_based_on_rectangular_pinhole_aperture.pdf (Metzler, Moore & Park, NSS/MIC 2012).
+
+Questions:
+1. Does any of them give a closed-form resolution (FWHM, resolution-equivalent width) WITH penetration for a straight knife edge (a slit), or for a square or rectangular pinhole, at oblique incidence?
+   - Quote each such equation exactly (LaTeX, with number and page), with its symbol definitions and assumptions.
+2. Compare each one symbolically with our W_x, W_y. Convert notation carefully: incidence angle conventions, edge slope t = tan(α/2), and the two-sided (double) knife edge.
+   - Is ours identical, a special case, a generalisation, or different? If different, where and by how much, numerically for w = 0.556 and 1.215 mm, μ = 3.63/mm, t = 1, θ = 30°.
+   - Also compare the slit effective width w_eff = w + 2/(μκ) (Li et al. 2009, from Accorsi 2008) with our area or sensitivity strip term.
+3. Metzler 2012: what rectangular-pinhole resolution model did they use?
+4. **Verdict on novelty.** Which parts of square_pinhole.md §3.2 are already published, and where? What, if anything, is genuinely new (e.g. the per-side oblique widths for a square, the √2 diagonal, the across-tilt form for a straight edge)?
+   - Give a suggested one-paragraph wording for paper 2 with the correct citations.
+
+Append the answers as §5 "Slit-slat and asymmetric knife-edge papers (2026-10-30)" to literature_check.md. Write nothing else.
+
+Reply with a summary under 250 words.

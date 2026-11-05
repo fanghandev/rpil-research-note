@@ -1,0 +1,284 @@
+---
+title: "Analytical resolution of the brain SPECT helmet, and how the reconstruction compares"
+subtitle: "Worked numbers for the classic pinhole formulas, the reconstructed point response, the '2-2.5x' rule, and the smallest-pinhole hypothesis. Internal: contains aperture widths."
+author: "Fang Han"
+date: 2026-10-28
+date-format: "D MMMM YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    embed-resources: true
+    html-math-method: mathjax
+    theme: cosmo
+    fig-cap-location: bottom
+---
+
+# Short answers
+
+| question | answer |
+|---|---|
+| Is the analytical resolution about 7 mm? | **Only for the aperture term, or for the best single module away from the centre.** With the detector term included, the best single module at the helmet centre is 12.1 mm (parallel 2 mm pixels; 9.8 mm with converging pixels), and the count-weighted combination of all 73 modules is 15.5 mm. The best module reaches ~7 mm only 35-60 mm or more off-centre. The aperture term alone is 7.95 mm for the 1.215 mm pinhole at the centre (no penetration), which is the most likely source of "about 7 mm". |
+| Is the reconstruction 2-2.5x better? | **Yes, with the classic (quadrature) formula, if "analytical" means the count-weighted combination of all modules: 2.0-2.5x within 60 mm of the centre** (14.8-12.1 mm vs ~6 mm in the Derenzo and spheres). Against the best single module it is 1.2-1.7x near the centre. No paper states it as a rule, but the Sabet group's DC-SPECT study shows it: ~10 mm calculated at the centre vs 4.5 mm reconstructed (2.2x, Feng et al. 2022). Our centre gives 2.0-2.4x on the same definition (12.1-14.4 mm vs ~6 mm). |
+| Can resolution be recovered by mixing in the smallest pinholes? | **Not in this geometry.** The detector pixel, projected back to the object, is 8.5-11 mm at the centre and sets a floor that no pinhole size removes: the smallest pinhole's module is only 1.2-1.3x sharper than the 1.215 mm one, at one third of the counts. A mix also never beats the best pure design at any spatial frequency. The Meng group's helmet design study (Zannoni, Yang & Meng 2021) tested exactly this idea (0.5/1.5/3 mm mix vs uniform 1 mm) and found the mix "offers the lowest spatial resolution in this study": 6 mm rods resolved instead of 4 mm, because each size gives the fine detail fewer views and sparser angular sampling. |
+
+All numbers below come from `analytic.py` in this folder (output `analytic.json`, tables `_tables/`), the brain-system geometry (73 modules, pinholes on a sphere of radius 149.6 mm, all aimed at the helmet centre), and the reconstructions documented in the 28 October update.
+
+# The formulas and the constants
+
+For one module that sees a point at distance $b$ from its aperture plane (along the module axis) and slant distance $r$, at incidence angle $\theta$ from the module axis, with the mean interaction depth at distance $f$ behind the pinhole (Accorsi and Metzler 2004, eqs. 1, 6, 7):
+
+$$R_g = W\,\frac{b+f}{f},\qquad R_i = p\,\frac{b}{f},\qquad R = \sqrt{R_g^2 + R_i^2},\qquad g = \frac{A\cos^3\theta}{4\pi b^2} = \frac{A\cos\theta}{4\pi r^2}.$$
+
+Our apertures are **square** knife edges (double-sided, channel-less, 45° on both sides: $t = \tan(\alpha/2) = 1.000 \pm 0.001$ from the CSG), not the round pinholes of the classic papers. The square versions are derived and verified in `derivation/square_pinhole.md` (section 6 below).
+
+| symbol | meaning | value |
+|---|---|---|
+| $f$ | pinhole to mean interaction depth: entrance face 25 mm + 2 mm mean depth in CsI at 140 keV (GATE/gammart WP1: 2.55 mm) | 27 mm |
+| $b$ | point to aperture plane, along the module axis | 149.6 mm at the centre; 53-247 mm over the field of view |
+| $f/b$ | magnification | **0.18 at the centre: the projection is minified about 5.5 times** |
+| $p$ | detector pixel pitch at depth $f$ | 2 mm (parallel pixels); converging pixels: $p(s) = 2s/35$, so $p\,b/f = 2b/35$ at every depth |
+| $W$ | resolution-effective side width of the square, with penetration: $W = w + \frac{\ln 2}{\mu}\cos\theta\,(t - \tan^2\theta/2t)$ (mean of the two sides; at $\theta = 0$ exactly Accorsi and Metzler 2004 eq. 29, and exactly the FWHM along a side) | $\mu_W = 3.63$ mm$^{-1}$: $W = w + 0.191$ mm at $\theta = 0$, $w + 0.15$ mm at 30° |
+| $A$ | penetration effective area of the square (Metzler and Moore 2020 eq. 22); at $\theta = 0$ it equals Paix's $w_s^2 = w^2 + 2wt/\mu + 2t^2/\mu^2$ | used for the counts only; falls 7-22 % by 30° |
+| $w$ | nominal pinhole widths A < B < C < D | 0.556, 0.797, 1.215, 2.007 mm (inventory 19/18/18/18) |
+
+All widths are FWHM at the object. $R_i$ is the detector pixel projected back through the pinhole: with a minifying geometry it is the dominant term. The pixel is treated as a blur of width $p$ (the usual approximation; sampling is ignored).
+
+**Combining modules.** Two numbers are quoted:
+
+- the **best single module** (smallest $R$ among the modules that see the point);
+- the **count-weighted (information-weighted) combination** $R_{comb} = \left(\sum_k g_k R_k^{-2} / \sum_k g_k\right)^{-1/2}$, since the information per count of a Gaussian blur goes as $R^{-2}$. This is a projection-level summary, not a reconstruction.
+
+# Worked example: the centre of the helmet
+
+At the centre every module sees the point at the same distance, $b = 149.6$ mm, at normal incidence. So $(b+f)/f = 176.6/27 = 6.541$ and $f/b = 0.180$.
+
+**Detector term.** Parallel pixels: $R_i = 2 \times 149.6 / 27 = 11.08$ mm. Converging pixels: $R_i = 2 \times 149.6/35 = 8.55$ mm.
+
+**Aperture term**, $R_g = d \times 6.541$:
+
+{{< include _tables/geometric.md >}}
+
+**Per module**, with penetration:
+
+{{< include _tables/centre.md >}}
+
+: Centre of the helmet, one module of each size. Example, aperture C with parallel pixels: $\sqrt{9.20^2 + 11.08^2} = 14.40$ mm. "Counts vs A" is $(w_s/w_{s,A})^2$. {tbl-colwidths="[8,8,8,8,12,12,10,12,10,8]"}
+
+**Combined over the current design** (all 73 modules, the actual 19/18/18/18 assignment):
+
+{{< include _tables/centre_mix.md >}}
+
+Three things to read off:
+
+1. **The detector term dominates.** At the centre a 2 mm pixel spans 11.1 mm at the object. Even the smallest pinhole's module is at 12.1 mm, and 9.8 mm with converging pixels.
+2. **"About 7 mm" matches the aperture term alone:** 7.95 mm for C at the centre without penetration, 7.0 mm for C at $b = 128$ mm. It does not include the detector.
+3. **The weighted combination is worse than the best module** (15.5 vs 12.1 mm), because the large apertures carry most of the counts: D has 6.9 times the counts of A.
+
+![Projection FWHM against the pinhole-to-point distance, per aperture (solid), the aperture term alone (dotted) and the detector term (dashed). The dashed line is a floor that no pinhole size removes. Converging pixels lower the floor by 23 % (27/35).](img/terms_vs_b.png){#fig-terms}
+
+# Over the field of view
+
+The same formulas at the points where the reconstructed point response was measured (slice $z = 25.5$ mm, a 30° ray, $r$ = distance from the scanner axis), and in the uniform slice of the small Jaszczak:
+
+{{< include _tables/points.md >}}
+
+: Projection resolution, FWHM in mm, with penetration. The best module improves strongly off-centre (the nearest module is closer); the weighted value much less, because far modules still dominate the counts. {tbl-colwidths="[24,18,14,14,15,15]"}
+
+So "about 7 mm" also describes the **best single module 60 mm off-centre** (7.1 mm, parallel pixels) or 35 mm off-centre in the uniform slice (6.6 mm). The 28 October deck's slide 11 (`resolution_theory.py`) differs in two ways: it used the Paix width for the resolution term (best-module numbers 0.3-0.7 mm too high), and $g = w_s^2\cos^3\theta/4\pi r^2$ with the slant distance $r$, which undercounts oblique modules by $\cos^2\theta$ (0.75 at 30°). Both are corrected here; the weighted values change by ≤ 0.2 mm.
+
+# Reconstructed resolution, and the ratio
+
+**The reconstructed number is taken from the phantoms**, which are real OSEM reconstructions of GATE-simulated data (the 28 October update, section 6):
+
+- the Derenzo separates 6 mm rods, and 5 mm rods only partly; its equivalent Gaussian FWHM is 5.0-7.0 mm across the sectors at 200 iterations;
+- the edges of the cold spheres are 5.3-6.7 mm at 1600 iterations;
+- reconstructing the same data with the gammart matrix instead of the GATE matrix gives the same images (line FWHM 3.50 vs 3.51 mm, contrast within 3 %), so these numbers are not an artefact of the GATE matrix's Monte Carlo noise;
+- the triple-line 3.5 mm NEMA FWHM is the floor of the 2 mm voxel grid, not the system resolution.
+
+So **about 6 mm** (5-7 mm) for extended objects within ~60 mm of the centre. Against the analytical values at the same radii (section 4, parallel pixels):
+
+| r (mm) | best module | weighted, all modules | ratio to ~6 mm: best / weighted |
+|---|---|---|---|
+| 0 | 10.1 | 14.8 | 1.7 / **2.5** |
+| 30 | 9.0 | 14.1 | 1.5 / **2.4** |
+| 60 | 7.1 | 12.1 | 1.2 / **2.0** |
+
+: Analytical (classic quadrature formula) vs reconstructed ~6 mm. {tbl-colwidths="[15,20,30,35]"}
+
+**So the "2-2.5x" holds in this system for the count-weighted analytical value:** 2.0-2.5x within 60 mm of the centre. Against the best single module the reconstruction gains 1.2-1.7x near the centre and little near the edge, where one near module is already at 4.6 mm.
+
+## The point response, and why it is not used for the ratio
+
+The earlier version of this document took the reconstructed number from the **ideal local impulse response** (LIR) of the GATE system matrix, $H^T(HH^T+\alpha I)^{-1}He_j$ with $\alpha = 10^{-3}\lambda_{max}$: 6.4 / 5.8 / 5.8 / 5.9 / 5.0 mm at r = 0 / 30 / 60 / 80 / 95 mm. Rebuilding it with **noiseless** gammart matrices (2 mm grid, same voxels and $\alpha$ rule) gives wider responses for the same system:
+
+| case | r = 0 | 30 | 60 | 80 | 95 | share beyond 15 mm |
+|---|---|---|---|---|---|---|
+| GATE matrix (current mix, parallel), as before | 6.4 | 5.8 | 5.8 | 5.9 | 5.0 | 2.5-7.9 % |
+| gammart, current mix, parallel | 10.9 | 11.4 | 9.3 | 8.4 | 6.7 | 1.5-3.2 % |
+| gammart, current mix, **converging** | 9.8 | 9.6 | 7.9 | 6.5 | 5.5 | 1.1-2.0 % |
+| gammart, **uniform 1.215 mm**, parallel | 9.9 | 11.1 | 8.9 | 7.7 | 6.2 | 1.4-3.3 % |
+| gammart, **uniform 1.215 mm, converging** | 9.2 | 9.1 | 7.7 | 6.2 | 5.3 | 1.4-2.4 % |
+
+: Half-max width (mm), mean over 12 directions. Files: `lir/lir.md`, `lir/lir.json`. {tbl-colwidths="[34,9,9,9,9,9,21]"}
+
+The difference is the GATE matrix's counting noise: its entries are 1-6 counts. In $H e_j$ and in the Gram matrix the column of voxel $j$ shares that noise with itself, which produces a narrow spike plus a far-field tail. Poisson-resampling the gammart matrix to the GATE counts reproduces the GATE far-field shares (6.3 / 9.6 / 6.6 / 5.7 / 2.7 % vs 5.9 / 7.9 / 4.8 / 4.7 / 2.5 %) and narrows the widths to 4.7-8.0 mm. The LIR half-max is also set by the arbitrary $\alpha$: it is a regularised linear stand-in, not the resolution OSEM reaches after hundreds of iterations. So the LIR is used here **only to compare designs at a fixed $\alpha$**, not as an absolute resolution.
+
+As a design comparison (noiseless, same $\alpha$):
+- **converging pixels** sharpen the response by 1-2 mm at every radius;
+- **uniform 1.215 mm** is as sharp as or sharper than the current mix with either detector;
+- uniform 1.215 mm with converging pixels is the sharpest at every radius.
+
+![Radial profiles of the noiseless gammart point responses for the four cases.](img/lir_profiles.png){#fig-lir}
+
+**Why the reconstruction can beat every projection.** The detector term is a sampling limit of one view: a pixel 11 mm wide at the object. The 73 views sample the object with pixels at different distances, angles and offsets. Together they sample it more finely than any one view, and the system matrix models each view's blur exactly. That is resolution recovery through sampling diversity. It is bounded by noise: the gain depends on counts, iterations and contrast, which is why the Derenzo and the spheres show 5-7 mm and not less.
+
+# Where "2-2.5x better" may come from
+
+**Most likely source: the Sabet group's DC-SPECT study (MGH).** Feng, Worstell, Kupinski, Furenlid and Sabet, arXiv:2212.14505 (2022), read in full:
+
+- **System:** the cardiac DC-SPECT, a minifying geometry like ours, with 2 × 2 mm CsI:Tl pixels. It uses pinhole-to-detector $l = 87$ mm and pinhole-to-centre $b = 253$ mm.
+- **Calculated resolution:** the same classic formula as here, evaluated at the FOV centre: $R_{system} = \sqrt{R_{coll}^2 + R_{int}^2}$, $R_{coll} = d_{eff}(l+b)/l$, with the Anger width $d_{eff} = \sqrt{d\,(d + 2\mu^{-1}\tan(\alpha/2))}$. A 2.25 mm pinhole gives "~10 mm".
+- **Reconstructed resolution:** "4.5 mm FWHM central spatial resolution", from Derenzo rods of 7 / 6 / 5.5 / 4.5 mm. Settings: list-mode MLEM with a spatially variant PSF, 400 iterations, 2 × 10^5 counts, only 20 of the 80 heads, and no scatter or attenuation.
+- **Ratio:** 10 / 4.5 ≈ 2.2. No factor is stated in the paper; this is our arithmetic.
+
+The DB-SPECT abstract from the same group (Feng et al., NSS/MIC 2022, abstract only) quotes a "calculated resolution" of 4.05 mm for a design that resolves all 2.65 mm and some 2 mm Derenzo rods. That is again about 1.5-2x.
+
+**The same comparison in our system.** At the centre every module sees the point at the same $b$, so the single-module formula is the system's "calculated resolution", as in DC-SPECT: 12.1-14.4 mm for apertures A-C, parallel pixels (section 3). Against the reconstructed ~6 mm (Derenzo, spheres), the ratio is 2.0-2.4x. The rule of thumb therefore holds for this family of minifying multi-pinhole systems when "analytical" means the classic per-module formula at the centre, or its count-weighted combination. It is an empirical observation from these studies, not a published law.
+
+**Other literature** (Undermind and web search):
+
+- **Pinhole SPECT with resolution modelling reports about 1-1.5x, in magnifying systems.**
+  - U-SPECT (Vastenhouw, Beekman et al., IEEE TMI 2007): 0.6 mm pinholes give 0.45 mm reconstructed. *Web snippet, not verified.*
+  - MRC-SPECT-II (Lai and Meng, PMB 63:045008, 2018): 300 µm pinholes with 0.1 mm pixels give 0.45-0.55 mm.
+  - In both, the ratio is to the pinhole size.
+- **The formulas are pessimistic by themselves.** Goulet and Joy (Med Phys 7:571, 1980) measured line-spread FWHM about 20 % better than the Anger prediction. Accorsi and Metzler (IEEE TMI 23:750, 2004) show that the Paix/Anger width, derived for sensitivity, overestimates the resolution width.
+- **The same group's 2025 JNM abstract** (Feng et al., "Spatial resolution evaluation of DC-SPECT system", summary only) shows how strongly the reconstructed number depends on the model. Derenzo resolution is 5.5 mm with a Monte Carlo system matrix vs 8 mm with an analytic one. Point sources give 1.8-2.3 mm without scatter and 3.3-6.0 mm with scatter.
+
+**Conditions.** The factor needs a system matrix that models each view's blur, many views with diverse sampling, high-contrast objects and enough counts. It shrinks toward the edge of the FOV, where one near module is already sharp (section 5).
+
+# The smallest-pinhole hypothesis
+
+The hypothesis: "resolution can be recovered by the smallest pinholes", i.e. a mix in which a few small pinholes provide resolution and the large ones provide counts.
+
+## Analytical: the detector floor
+
+At the centre, going from C to A sharpens a module from 14.4 to 12.1 mm (parallel pixels) or from 12.6 to 9.8 mm (converging pixels). That is 1.2-1.3x sharper, at 0.33x the counts (table in section 3). The aperture term is 9.2 → 4.9 mm, a factor of 1.9, but it adds in quadrature with an 8.5-11 mm detector term. Shrinking the pinhole pays only when the aperture term dominates, i.e. when the pinhole is magnified onto a fine detector. Goorden, Rentmeester and Beekman ("Theoretical analysis of full-ring multi-pinhole brain SPECT", Phys Med Biol 54:6593, 2009, read in full) make the same point: for detectors with intrinsic resolution above about 0.2 mm "the optimal detector radius is large, resulting in a magnified object projection onto the detector" (§4); only detectors finer than 0.2 mm favour de-magnified projections. Our 2 mm pixels are ten times above that crossover.
+
+## Analytical: information per frequency
+
+Fisher information adds over modules. At spatial frequency $\nu$ a module contributes about $g\,\mathrm{MTF}(\nu)^2$. For each frequency band one size is best, and a mix is a weighted sum of the pure designs, so **it cannot beat the best pure design in any band**. The table gives the information relative to the best pure design, from two simple response models (Gaussian blur / aperture box × pixel box), with converging pixels:
+
+{{< include _tables/information.md >}}
+
+: Information per frequency band, relative to the best pure design (Gaussian / box model). Band = fundamental of a Derenzo sector (period = 2 × rod diameter). {tbl-colwidths="[16,14,17,17,18,18]"}
+
+![The same at r = 60 mm over all frequencies. The mix (dashed) is never at the top.](img/information_vs_frequency.png){#fig-info}
+
+The simple models do favour small pinholes at the finest detail, especially at the centre. This is the regime in which the PI's intuition holds. But those models are not the system: the full system matrix and the reconstructions rank the sizes differently.
+
+## Full system matrix and reconstructions
+
+- **Information from the real system matrix** (WP2b step 0, `pytorch-optix/out/wp2b/step0.log`). Fisher information of windowed plane waves at 48 points, computed from the exact system matrix columns with a realistic XCAT background and 10⁷ counts. Mean directional resolution:
+  - uniform A: 9.48 mm;
+  - B: 8.16 mm;
+  - C: 7.18 mm;
+  - D: 6.75 mm;
+  - current mix: 7.42 mm.
+
+  At realistic counts the large apertures carry more information at the frequencies that matter, not less. The Gaussian picture overrates small pinholes: a pinhole's response is flat-topped, not Gaussian, and the count penalty dominates at 10⁷ counts.
+- **Reconstruction scorecard** (Derenzo and XCAT, 100 noise realisations, matched noise; the 28 October deck):
+  - 7 mm rod valley/peak ratio, lower is better: all A 0.97, all C 0.81, current mix 0.87.
+  - A uniform 1.215 mm design beats the current mix by about 3σ.
+  - No mixed design beats uniform; the best of 12 mixed maps reaches 0.438 on the 8 mm rods vs 0.414 for uniform.
+
+## The Meng group (UIUC)
+
+**Zannoni, Yang and Meng, "Design study of an ultrahigh resolution brain SPECT system using a synthetic compound-eye camera design with micro-slit and micro-ring apertures", IEEE TMI 40(12):3711-3727, 2021**, doi:10.1109/TMI.2021.3096920 (read in full). This is the closest published analogue to our system and the only published uniform-vs-mixed comparison found.
+
+- **System:** a "HelmetSPECT" with about 500 modules, 20 × 20 mm detectors with 250 µm pixels, and 1:12 minification.
+- **Designs compared** (§II-B.3):
+  - uniform: 502 × 1 mm loftholes;
+  - mixed: 168 × 0.5 mm + 167 × 1.5 mm + 167 × 3 mm, interleaved in every ring;
+  - also 150 and 250 µm micro-slits and a 250 µm micro-ring.
+- **Why they tried the mix** (§II-B.3): *"The specific combination of the three lofthole diameters is chosen to allow the system to sample the object at high spatial frequencies, while maintaining a relatively high sensitivity."* This is the same hypothesis as ours.
+
+| result (Zannoni 2021) | uniform 1 mm | mixed 0.5/1.5/3 mm | micro-ring 250 µm |
+|---|---|---|---|
+| Fisher-information image FWHM at the centre (Fig. 5) | 20 mm | **26 mm** | 12 mm |
+| hot rods resolved, S/B 20:1, 30 min, OSEM (Fig. 8) | 4 mm | **6 mm** | 4 mm |
+| hot rods resolved, S/B 5:1 (Fig. 9) | 6 mm | 6 mm | 4 mm |
+| 4 mm rods, S/B 20:1: CNR / CRC | 14.7 / 35.5 % | 22.5 / 36.2 % | 61.2 / 72.5 % |
+| 10 mm rods, S/B 20:1: CNR / CRC | 36.5 / 84.6 % | 59.0 / 92.7 % | n/a |
+
+: Transcribed from the paper; CNR/CRC from bar-chart labels. Mixed-design sensitivity is given only graphically (Fig. 6). {tbl-colwidths="[40,20,20,20]"}
+
+At equal scan time the mix has higher CNR (it collects more counts), but its contrast recovery on the 4 mm rods is no better than the uniform design's, and it resolves coarser rods. **The extra counts did not buy resolution at the finest scale.** The authors explain:
+
+> *"the angular sampling provided by each type of lofthole is sparser than the case of 1-mm D lofthole collimator. Additionally, only the two smallest loftholes could allow to resolve the disk features at the center of the FOV. The reduction of the number of loftholes able to visualize the feature and the sparser angular sampling led to the degraded resolution in the central area of the FOV."* (§III-D.1)
+
+> *"The combination of 3 types of loftholes having different diameters improves the system sensitivity but offers the lowest spatial resolution in this study."* (§IV)
+
+Their explanation matches ours. Fine detail is carried only by the small apertures, so a mix gives each detail **fewer views and sparser angular sampling** than a uniform design. In our terms, the mix is a weighted sum of the pure designs and cannot beat the best one at any frequency. On the detector, they note: *"the large minification geometry makes the DOI capability indispensable to achieve a high spatial resolution"* (§II-C). That is the same point as our detector-term floor; our converging pixels address the DOI part of it.
+
+The design idea itself also appears in the DB-SPECT abstract of Feng, Hashemi, Soleymani, Ottensmeyer and Sabet (IEEE NSS/MIC 2022, doi:10.1109/NSS/MIC44845.2022.10399152, abstract only):
+- **The design:** 118 collimators in 4 groups from 0.5 to 2.0 mm.
+- **The claim:** "high sensitivity thanks to the collimator groups with larger hole sizes and high resolution where the groups with small collimator hole contributed to recovered resolution".
+- **What it was compared with:** a dual-head camera, not a uniform aperture at equal sensitivity. So the abstract does not test whether the small holes recover resolution.
+
+- **Meng and Clinthorne, IEEE TMI 23:896, 2004** (modified uniform Cramér-Rao bound). The best pinhole size follows the target resolution: "a larger pinhole diameter results in lower variance if a worse spatial resolution is acceptable". That favours one size matched to the task, not a mix. Mixed sizes were not tested.
+- **Meng and Li, IEEE TNS 56:81, 2009.** Finer detector pixels (1 → 0.5 mm) gave a "significant improvement"; finer still gave a modest one. Detector resolution is the lever in minified designs.
+- **Their newest brain system** (Mandot et al., NSS/MIC 2025, abstract) uses 2 mm pinholes for the whole-brain mode with a simulated 6 mm resolution. It gains resolution through sub-pixel and angular shifts (sampling diversity) and a separate micro-ring insert, not by mixing pinhole sizes.
+
+**Conclusion.** In this geometry the detector pixel sets the resolution floor of every projection. The reconstruction recovers below it through sampling diversity, about 2x relative to the count-weighted analytical value. Mixing in small pinholes recovers nothing a uniform design does not already give. The levers for resolution are the detector term and the sampling, i.e. converging pixels (−23 % on $R_i$), finer pixels, or more magnification, and the aperture size matched to the task.
+
+# Phase 0: the formulas against gammart, module by module
+
+gammart Monte Carlo ($2\times10^{10}$ photons per design) and the deterministic engine, for the current mix and uniform A/B/C/D, at the centre and the five LIR points. All 73 modules see every point, at $\theta$ up to 41° and $b$ = 53-247 mm. Files: `phase0/phase0.md`, `phase0/phase0.json`.
+
+| check | result |
+|---|---|
+| sensitivity, $g = A\cos\theta/4\pi r^2$ (square area with penetration) | gammart / formula = **0.975-0.989** for every aperture, flat in $\theta$ and $b$; the ~2 % deficit is probably crystal escape and the shield |
+| old sensitivity form ($\cos^3\theta/r^2$) | 1.05 on average, 1.18 for $\theta > 28°$: the corrected obliquity is confirmed |
+| nominal $w^2$ (no penetration) | 2.4 / 1.9 / 1.5 / 1.28 for A / B / C / D at the centre: penetration is not negligible for the small apertures |
+| aperture spot width along a side (continuous positions, no pixels) | gammart / square-pinhole line-spread formula = **0.99-1.01** at the centre; 0.90-0.99 at r = 95 mm (obliquity narrowing, strongest for A, as derived) |
+| side / diagonal width ratio | 1.35-1.36 at the centre (predicted 1.37-1.40): the square's spot is anisotropic |
+| effective $f$ (mean interaction depth) | 27.4 mm at the centre, 27.0 mm at r = 95 mm (formula: 27 mm) |
+| pixel-binned resolution vs the quadrature $R$ | centre: gammart is **lower** than the formula (parallel 11.2-13.7 vs 12.0-18.1 mm; converging 8.9-13.9 vs 9.9-16.7 mm), as expected from the box-shape caveat; off-centre with parallel pixels gammart is **higher** (14-17 vs 12-15 mm at r ≥ 30 mm) because the formula has no parallax term; with converging pixels it agrees within 0-15 % |
+
+: Phase 0 summary. {tbl-colwidths="[32,68]"}
+
+![Phase 0: gammart sensitivity and spot width against the formulas.](img/phase0_sens_width.png){#fig-phase0}
+
+The formulas therefore hold for the sensitivity and the aperture term to 1-3 %. The combined $R$ is a Gaussian-convention approximation: about 15-30 % too high at the centre, and too low off-centre for parallel pixels (parallax).
+
+# Equations checked, and the square aperture
+
+The three classic papers (Accorsi and Metzler, IEEE TMI 23:750, 2004; Metzler and Accorsi, PMB 50:5005, 2005; Metzler and Accorsi, point-spread function and RMS resolution with penetration) were read in full. The square-aperture forms were then derived independently and checked against brute-force integrals and an exact ray trace of the GATE collimator solids (finite source, $b = 53$-247 mm, $\theta \le 40°$: FWHM to $10^{-4}$ mm, area to 0.03 %). Full derivation, scripts and literature: `derivation/square_pinhole.md`.
+
+| quantity | used before | check | now |
+|---|---|---|---|
+| resolution width $w + \ln 2\,t/\mu$ | yes | AM2004 eq. 29; for a square it is *exactly* the point-profile FWHM along a side at normal incidence | kept; angle dependence added ($-0.04$ mm at 30°) |
+| Paix $w_s^2$ for the counts | yes | exactly the square's penetration area at normal incidence (Metzler and Moore 2020 eq. 25) | kept at $\theta = 0$; area $A(\theta,\varphi)$ off-axis |
+| $g = w_s^2\cos^3\theta/4\pi r^2$ | yes | **wrong**: AM2004 eq. 1 has $\cos^3\theta/b^2$ ($b$ perpendicular), i.e. $\cos\theta/r^2$ | fixed; oblique modules +4 to +24 % counts at 30° (A to D) |
+| $R = \sqrt{R_g^2 + R_i^2}$ | yes | the literature convention (AM2004 eq. 7; Moore et al. 2016), exact only for Gaussians | kept, with the caveat below |
+
+**Square vs round.** A square's geometric spot is a box: its FWHM along a side is the side width, along the diagonal $\sqrt 2$ times larger, and its RMS is isotropic. Equivalent round diameters: equal area $d = 1.13\,w$ (1.15-1.21 $w$ with penetration); equal FWHM along a side $d = w$; equal RMS or line-source FWHM $d = 1.155\,w$. Johnson, Moore and Metzler (PMB 61:2003, 2016) find a square aperture 11-12 % sharper than a round one of equal sensitivity. No closed-form FWHM for square knife edges was found in the literature; the Metzler group applies the AM2004 normal-incidence form to the side length, as here.
+
+**The quadrature caveat, which matters for "2-2.5x".** $R = \sqrt{R_g^2 + R_i^2}$ adds FWHMs as if both blurs were Gaussian. Both are boxes here: a flat-topped aperture spot and a 2 mm pixel. Two boxes convolve into a trapezoid whose FWHM is the *larger* width, not the quadrature sum. For aperture C at the centre with parallel pixels the same module reads:
+
+| convention | FWHM at the object |
+|---|---|
+| quadrature of FWHMs (classic formula, used in this document and by DC-SPECT) | 14.4 mm |
+| RMS added in quadrature, × 2.355 (Gaussian-equivalent) | 10.5 mm |
+| actual FWHM of the box ⊗ box profile | 11.1 mm |
+
+The classic formula therefore overstates a module's FWHM by about 30 % in this regime. Part of the "2-2.5x" gain of the reconstruction over the "analytical" value is this convention, and part is real resolution recovery. Against the actual profile width (11.1 mm for C; gammart Phase 0 gives 11.2-13.7 mm for the binned spot) the gain at the centre is about 1.8-2.3x over ~6 mm, i.e. still close to 2x. Since the DC-SPECT figure uses the same convention, the comparison with the rule of thumb is like for like. The convention should be stated whenever the factor is quoted.
+
+# Caveats and what is not done
+
+- The analytical numbers ignore the shield, the depth of interaction (parallax; removed by the converging pixels), Compton spread in the crystal, and pixel sampling. The square-aperture forms are verified against an exact ray trace of the CSG (section 6); the quadrature convention is the main uncertainty (10.5-14.4 mm for the same module).
+- The noiseless gammart point responses use a 2 mm grid, no shield, and r ≤ 120 mm; they compare designs at one $\alpha$ and are not absolute resolutions.
+- The reconstructed ~6 mm comes from phantoms with the current mix and parallel pixels; phantoms with converging pixels and uniform apertures are pending (WP3 and the paper-2 scorecards).
+- Literature items marked *web snippet* or *abstract* were not read in full; the Zannoni 2021, Meng and Clinthorne 2004, Meng and Li 2009 and Lai and Meng 2018 papers were read in full text.

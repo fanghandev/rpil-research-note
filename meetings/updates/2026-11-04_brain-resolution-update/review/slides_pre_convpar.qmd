@@ -1,0 +1,334 @@
+---
+title: "What limits resolution in the brain SPECT helmet"
+subtitle: "Analytic formulas checked against simulation · the detector-pixel floor · converging pixels with realistic LIOB decoding · research-group update"
+author: "Fang Han"
+date: 2026-11-04
+date-format: "D MMMM YYYY"
+lightbox:
+  match: auto
+  effect: zoom
+  desc-position: bottom
+  loop: true
+execute:
+  echo: false
+  warning: false
+# Sources of every number: pytorch-optix/docs/paper2_plan.md (WP0-WP4, "LIOB decoding"), 2026-10-28_analytic_resolution
+# (analytic.json, phase0/phase0.md, derivation/), 2026-10-30_brain_weekly/report.qmd, img/*.json in this folder.
+# Exact geometry allowed (group + PI). Status words: FINAL, PROVISIONAL, NEW.
+format:
+  revealjs:
+    width: 1600
+    height: 900
+    margin: 0.06
+    slide-number: true
+    navigation-mode: linear
+    theme: [default, keynote.scss]
+    html-math-method: mathjax
+    progress: true
+    controls: true
+    controls-layout: bottom-right
+    controls-tutorial: false
+    menu: true
+    center: false
+    embed-resources: true
+    css: slides.css
+    include-after-body: lightbox-slides.html
+---
+
+## The question and the answer
+
+- **Question:** can a different pinhole choice (size, mix, placement) improve the resolution–sensitivity of the current helmet?
+- **Answer:** no. With 2 mm pixels and ~5.5× minification, the **detector pixel sets a floor** under every module:
+  - a 2 mm pixel projects to **11.1 mm** at the object at the centre; the pinhole term is 4.9–9.2 mm (A–C)
+  - smaller pinholes buy little resolution at a large cost in counts; larger ones lose resolution once their term exceeds the floor
+  - only the detector term moves the floor: **finer (decoded) pixels or less minification**
+- **How we know:** the classic formulas, checked module by module against gammart Monte Carlo, agree with the reconstruction scorecard and the literature
+- **Converging pixels** shrink the floor by 23 % and fix the image scale on measured data, **but** with realistic LIOB decoding they decode worse (70 vs 85 % correct). Whether they still beat parallel pixels: see the last results section
+
+::: {.notes}
+Sources: report 2026-10-30 §2–4; frontier figure (scripts/fig_frontier.py); LIOB confusion matrices model_LIOB/out/brain_confusion (README).
+:::
+
+## Metrics used in this update (1/2): resolution and sensitivity {.smaller}
+
+| metric | definition | meaning |
+|:---|:---|:---|
+| aperture term $R_g$ | $R_g = d_{re}\,(b+f)/f$, with $d_{re} = w + \ln 2\,t/\mu$ | blur from the pinhole opening (side $w$, tungsten $\mu$ = 3.63 mm⁻¹, edge slope $t$ = 1), referred to the object at distance $b$ |
+| detector term $R_i$ | $R_i = p\,b/f$ | the detector pixel (pitch $p$ at depth $f$ = 27 mm) projected back through the pinhole to the object |
+| module resolution $R$ | $R = \sqrt{R_g^2 + R_i^2}$ (FWHM, mm) | classic quadrature combination; exact for Gaussians, conservative for boxes |
+| detector share | $R_i^2 / R^2$ | fraction of the module blur that comes from the pixel |
+| count-weighted resolution | $R_{comb} = \big(\sum_k g_k R_k^{-2} / \sum_k g_k\big)^{-1/2}$ | one number for all modules $k$ that see a point, weighted by their counts $g_k$ |
+| sensitivity $g$ | $g = A_{eff}\cos^3\theta/(4\pi b^2)$, $A_{eff} = w^2 + 2wt/\mu + 2t^2/\mu^2$ at $\theta = 0$ | fraction of emitted photons that pass the pinhole, including penetration; $\theta$ = incidence angle |
+| relative sensitivity | $g/g_A$ | counts of a module relative to aperture A at the same position |
+| Phase 0 ratio | $g_{gammart}/g_{formula}$, $W_{gammart}/W_{formula}$ | Monte Carlo sensitivity and aperture spot width divided by the formula; 1 = formula exact |
+
+## Metrics used in this update (2/2): images and decoding {.smaller}
+
+| metric | definition | meaning |
+|:---|:---|:---|
+| Derenzo valley-to-peak V/P | $\mathrm{V/P} = \bar I_{valleys} / \bar I_{rods}$ | mean image value at the valley points between rods over the mean at the rod centres, per rod-size sector (2D image averaged over $z$ = −30…30 mm, bilinear sampling). **0 = rods fully separated, ≈ 1 = not resolved** |
+| cold contrast $C$ | $C = 1 - \bar I_{cold} / \bar I_{bg}$ | Jaszczak sphere or rod: mean inside 60 % of its radius over the surrounding water background. **1 = ideal, 0 = invisible** |
+| matched noise | rod-peak CoV $= \mathrm{SD}_r(I_{peak}) / \mathrm{mean}_r(I_{peak})$ = 2.5 % | designs compared at the iteration where the realisation-to-realisation noise of the rod peaks is equal |
+| between-map SD | SD of a metric over random aperture placements | how much placement alone changes the result |
+| line FWHM | full width at half maximum of a profile through a reconstructed line | apparent width of a line source |
+| image scale | $\sum$ reconstructed triangle sides $/ \sum$ true sides | geometric correctness; 1 = right size |
+| correct decoding rate | $\sum_f n_f P_{ff} / \sum_f n_f$ | fraction of events decoded into their true pixel; $P_{fc}$ = probability that an event in pixel $f$ is decoded into $c$ (LIOB confusion matrix), $n_f$ = events per pixel |
+| local impulse response (LIR) half-max | half-maximum width of $H^T(HH^T + \lambda I)^{-1} H e_j$ | point response of a regularised linear reconstruction ($\lambda = 10^{-3}\lambda_{max}$), system only; used **only to compare designs** |
+
+## The system and the two blur terms
+
+:::: {.columns}
+::: {.column width="56%"}
+![](img/schematic_pinhole_terms.png){width=100%}
+:::
+::: {.column width="44%" .side-notes}
+- 73 modules, pinholes on a sphere of radius **149.6 mm**, all aimed at the centre; square double-sided knife edges, 45°
+- Apertures **A / B / C / D = 0.556 / 0.797 / 1.215 / 2.007 mm**; CsI:Tl 50 × 50 × 10 mm, 25 × 25 pixels
+- Pinhole to mean interaction depth $f$ = 27 mm; point to aperture plane $b$ = 53–247 mm, **149.6 mm at the centre**
+
+$$R_g = d_{re}\,\frac{b+f}{f},\qquad R_i = p\,\frac{b}{f},\qquad R = \sqrt{R_g^2 + R_i^2}$$
+
+- $R_g$: the aperture, referred to the object; $R_i$: the detector pixel $p$ projected back through the pinhole
+- Minification $b/f$ = 5.5 at the centre: **every millimetre on the detector is 5.5 mm in the brain**
+:::
+::::
+
+## Worked at the centre: one module of each size {.smaller}
+
+| aperture | $w$ | $d_{re}$ (pinhole plane) | $R_g$ (object) | $R_i$ parallel / converging | $R$ parallel | $R$ converging | relative sensitivity |
+|:---|:---|:---|:---|:---|:---|:---|:---|
+| A | 0.556 | 0.747 | 4.89 | 11.08 / 8.55 | **12.11** | 9.85 | 1.00 |
+| B | 0.797 | 0.988 | 6.46 | 11.08 / 8.55 | **12.83** | 10.72 | 1.60 |
+| C | 1.215 | 1.406 | 9.20 | 11.08 / 8.55 | **14.40** | 12.56 | 2.99 |
+| D | 2.007 | 2.198 | 14.38 | 11.08 / 8.55 | **18.15** | 16.73 | 6.89 |
+
+::: {.fig-notes}
+- All in mm, FWHM; $(b+f)/f$ = 6.54 at the centre. $d_{re} = w + \ln 2\,t/\mu$ (Accorsi & Metzler 2004; exact along the side of a square)
+- **A → D: 6.9× the counts, 2.9× the aperture blur, but only 1.5× worse module resolution**, because $R_i$ is common to all sizes
+- Sensitivity ratio = penetration-effective area $(w_s/w_{s,A})^2$: penetration compresses the bare-area range 1 : 13 to 1 : 6.9
+- Over the current 73-module mix: best module 12.1 mm, count-weighted 15.5 mm (parallel pixels)
+:::
+
+::: {.notes}
+Source: 2026-10-28_analytic_resolution/analytic.json; report 2026-10-30 Table 8.
+:::
+
+## Does the simulation obey the formula? (Phase 0, FINAL)
+
+:::: {.columns}
+::: {.column width="60%"}
+![](img/phase0_sens_width.png){width=100%}
+:::
+::: {.column width="40%" .side-notes}
+- gammart Monte Carlo, 2 × 10¹⁰ photons per design; current mix and uniform A–D; centre and five off-centre points; all 73 modules, $\theta$ up to 41°
+- **Sensitivity:** gammart / formula = **0.975–0.989**, flat in $\theta$ and $b$ up to 37°
+- **Aperture spot width:** within **1 %** at the centre (0.90–0.99 at 95 mm off-axis: obliquity narrowing, as derived)
+- **Interaction depth:** $f_{eff}$ = 27.0–27.4 mm (formula 27)
+- The formula uses the corrected obliquity $g = A_{eff}\cos^3\theta/4\pi b^2$; the earlier $\cos^3\theta/r^2$ was 18 % low above 28°
+:::
+::::
+
+::: {.notes}
+Source: 2026-10-28_analytic_resolution/phase0/phase0.md.
+:::
+
+## Where the formula and the simulation differ, and why
+
+:::: {.columns}
+::: {.column width="55%"}
+![](img/schematic_box_vs_gauss.png){width=100%}
+:::
+::: {.column width="45%" .side-notes}
+- **Box shapes (centre).** $R = \sqrt{R_g^2 + R_i^2}$ assumes Gaussians. Aperture spot and pixel are boxes; two boxes convolve to a trapezoid whose FWHM is the **larger** width. Module C: quadrature 14.4 mm, true profile 11.1 mm. gammart's binned spot: 11.2–13.7 mm → the formula is **15–30 % high**
+- **Parallax (off-centre, parallel pixels).** The formula has no depth-of-interaction term: gammart is **higher** than the formula (14–17 vs 12–15 mm at r ≥ 30 mm)
+- **Converging pixels** remove the parallax: formula and gammart agree within 0–15 %
+- So the formula is a **conservative but faithful** guide: the ranking of designs and the detector-floor conclusion do not depend on these corrections
+:::
+::::
+
+## The detector term dominates {.smaller}
+
+| aperture (modules) | $R_g$ at $b$ = 150 / 86 / 53 mm | limiting term, 2 mm parallel | limiting term, converging |
+|:---|:---|:---|:---|
+| A (19) | 4.9 / 3.1 / 2.2 | detector (84 / 81 / 76 %) | detector (75 / 71 / 65 %) |
+| B (18) | 6.5 / 4.1 / 2.9 | detector (75 / 70 / 64 %) | detector (64 / 59 / 52 %) |
+| C (18) | 9.2 / 5.9 / 4.2 | detector (59 / 54 / 47 %) | aperture (46 / 41 / 35 %) |
+| D (18) | 14.4 / 9.2 / 6.5 | aperture (37 / 32 / 27 %) | aperture (26 / 22 / 18 %) |
+| detector $R_i$ | | 11.1 / 6.4 / 3.9 | 8.6 / 4.9 / 3.0 |
+
+::: {.fig-notes}
+- Percent = detector share of $R^2$; $b$ = 150 mm is the centre, 86 / 53 mm the nearest module to points 60 / 95 mm off-axis
+- **With 2 mm parallel pixels the detector is the largest blur for A–C (55 of 73 modules) at every distance**
+- For a 6 mm detector term at the centre you need **≈ 1.1 mm** pixels; to match aperture C, ≈ 1.7 mm
+- Goorden, Rentmeester & Beekman (PMB 2009): above ≈ 0.2 mm detector resolution the optimal multi-pinhole brain geometry **magnifies**; we minify 5.5× with 2 mm pixels
+:::
+
+## One picture: the resolution–sensitivity frontier
+
+![](img/frontier.png){.r-stretch}
+
+::: {.fig-notes}
+- Curves: pinhole width 0.3–3 mm for one module at the centre; dots = A–D; thin lines = detector floor $R_i$. **Pinhole choices move along a curve; only the detector moves the curve** (green: finer pixels; pink: longer pinhole–detector distance, hypothetical, ignores the smaller FOV and the radius limit)
+- Dashed: LIOB decoding estimate ($R_i \times \sqrt{1+12\sigma_d^2}$, see the converging-vs-parallel slide): converging and parallel end up almost equal
+:::
+
+## Consequence for the aperture choice (PROVISIONAL)
+
+:::: {.columns}
+::: {.column width="58%"}
+![](img/scorecard_derenzo.png){width=100%}
+:::
+::: {.column width="42%" .side-notes}
+- Reconstruction scorecard, Derenzo, 100 noise realisations at matched noise (rod-peak CoV 2.5 %): **uniform C (1.215 mm) beats every mixed design**; all-A is the worst
+- V/P = valley / rod-centre intensity per rod sector: 0 = separated, ≈ 1 = unresolved; lower is better
+- 8 mm V/P: uniform C 0.41 vs current mix 0.48 (1.8 between-map SDs)
+- Placement of a fixed inventory is second-order (between-map SD 0.039)
+- Why: information adds over modules, $F = \sum_h g_h\,\mathrm{MTF}_h^2$; each frequency band has one best size, and a mix cannot beat the best pure design
+- Caveats: parallel pixels, one matrix for data and model, no scatter
+:::
+::::
+
+## The literature says the same
+
+- **Zannoni, Yang & Meng, IEEE TMI 2021** (HelmetSPECT, 502 modules, 1:12 minification): the only published uniform-vs-mixed test
+  - mix 0.5 / 1.5 / 3 mm vs uniform 1 mm: Fisher-information image FWHM **26 vs 20 mm** (width of the Fisher-information response around one voxel: the resolution the data can support; lower is better); smallest rods resolved **6 vs 4 mm**
+  - "The combination of 3 types of loftholes having different diameters improves the system sensitivity but offers the **lowest spatial resolution** in this study."
+  - "the large minification geometry makes the DOI capability **indispensable**"
+- **Goorden, Rentmeester & Beekman, PMB 2009:** for detectors coarser than ≈ 0.2 mm, "the optimal detector radius is large, resulting in a magnified object projection onto the detector"
+- **Meng & Clinthorne, TMI 2004:** the best pinhole size follows the target resolution; **Meng & Li, TNS 2009:** finer detector pixels (1 → 0.5 mm) gave a "significant improvement"
+- **Square-pinhole formulas** verified: sensitivity = Metzler & Moore 2020 (symbolic proof), side widths = Accorsi et al. 2008 slit formula (backup)
+
+## "About 7 mm" and "2–2.5×": the estimates {.smaller}
+
+| analytic estimate (2 mm parallel pixels) | position | analytic (mm) | ratio to ≈ 6 mm reconstructed |
+|:---|:---|:---|:---|
+| count-weighted over 73 modules, quadrature | centre | 15.5 | 2.6 |
+| count-weighted, quadrature | ρ = 0 / 30 / 60 mm | 14.8 / 14.1 / 12.1 | 2.5 / 2.4 / 2.0 |
+| module C, quadrature | centre | 14.4 | 2.4 |
+| best single module | centre | 12.1 | 2.0 |
+| best single module | ρ = 0 / 30 / 60 mm | 10.1 / 9.0 / 7.1 | 1.7 / 1.5 / 1.2 |
+| module C, true box ⊗ box | centre | 11.1 | 1.9 |
+| aperture term alone, C, nominal | centre | 7.95 | 1.3 |
+
+::: {.fig-notes}
+- "About 7 mm" = the aperture term alone (7.95 mm for C at the centre), or the best module 35–60 mm off-centre
+- "2–2.5×" = the count-weighted classic formula near the centre; it is inflated by the Gaussian convention (1.9× against the true profile)
+- Reconstructed ≈ 6 mm: Derenzo 6 mm rods separate, sphere edges 5.3–6.7 mm (GATE data, parallel-pixel GATE matrix)
+:::
+
+## Converging pixels: geometry and parallax (FINAL)
+
+:::: {.columns}
+::: {.column width="55%"}
+![](img/schematic_converging.png){width=100%}
+:::
+::: {.column width="45%" .side-notes}
+- Walls aimed at the pinhole: pitch **1.43 mm at the entrance, 2.0 mm at the exit**; a ray through the pinhole stays in one pixel at any depth
+- **Detector term −23 %** at every distance ($p\,b/f$ = 2b/35 instead of 2b/27)
+- **No parallax:** radial spot FWHM **1.91 → 1.81 mm** from 0° to 35°; parallel 2 mm pixels **1.73 → 2.25 mm** (+30 %)
+- GATE and gammart agree on one module to 0.999–1.004
+- Edge strip (CsI outside the outer wall): 6–7.5 % of window events for extended phantoms
+:::
+::::
+
+## Converging pixels on measured data: the scale is right (FINAL)
+
+![](img/triple_scale.png){.r-stretch}
+
+::: {.fig-notes}
+- Cardiac prototype, same laser-written converging-pixel CsI:Tl, measured triple line (true sides 75 / 75 / 106.1 mm), MLEM 50 iterations
+- Parallel-pixel matrices stretch the image **13–14 %** (the footprint stretch between the two grids: 1.135 predicted, 1.110 fitted); the **converging matrix gives the true size within 1–3 %** and sharper lines (3.2–5.8 vs 4.3–6.8 mm)
+- With the LIOB study (X. Zhang's decoding)
+:::
+
+## But converging pixels decode worse (NEW) {.smaller}
+
+| LIOB confusion matrix (shrinkage ML) | correct overall | centre | edge ring |
+|:---|:---|:---|:---|
+| converging, brain geometry, simulated | **69.9 %** | 96.3 % | 65.2 % |
+| parallel 2 mm, simulated | **84.8 %** | 97.3 % | 73.9 % |
+| measured (Zhang, cardiac module) | 67.3 % | 82.7 % | 63.0 % |
+
+::: {.fig-notes}
+- Most deposits are near the entrance face, where converging pixels are only 1.43 mm wide, with the same light spread → more decoding errors, mostly to a neighbour
+- Simulated matrices are optimistic (≈ 74 vs 67 % on Zhang's detector); the measured matrix brackets them
+- Converging pixels, decoding modelled in data and reconstruction (GATE, TEW, 128 it): Derenzo 6 mm V/P **0.112 → 0.171** (simulated P), **0.187** (measured P); 7.9 mm rod contrast 0.816 → 0.754
+- Plain Poisson ML decodes much worse (57 %): **6 mm V/P 0.217**. The decoder matters as much as the hardware
+:::
+
+::: {.notes}
+Source: model_LIOB/out/brain_confusion/README.md; pytorch-optix/docs/paper2_plan.md "LIOB decoding, converging pixels".
+:::
+
+## Converging vs parallel pixels: what earlier studies already show {.smaller}
+
+| quantity (helmet centre unless stated) | parallel 2 mm | converging | factor |
+|:---|:---|:---|:---|
+| detector term $R_i$ (analytic) | 11.1 mm | 8.6 mm | 0.77 |
+| radial spot FWHM at 35° incidence (WP1, one module) | 2.25 mm | 1.81 mm | 0.80 |
+| LIR half-max, current aperture mix (noiseless gammart, ρ = 0 / 60 / 95 mm) | 10.9 / 9.3 / 6.7 mm | 9.8 / 7.9 / 5.5 mm | 0.90 / 0.85 / 0.82 |
+| LIR half-max, uniform C (ρ = 0 / 60 / 95 mm) | 9.9 / 8.9 / 6.2 mm | 9.2 / 7.7 / 5.3 mm | 0.93 / 0.87 / 0.85 |
+| decoding blur on $R_i$ (estimate from LIOB matrices, $\sqrt{1 + 12\,\sigma_d^2}$) | ×1.41 | ×1.79 | — |
+| detector term with decoding (estimate) | 15.6 mm | 15.3 mm | 0.98 |
+
+::: {.fig-notes}
+- With ideal decoding converging pixels sharpen the response by **7–18 %** (larger off-centre, where parallax matters)
+- $\sigma_d^2$ = mean variance (per axis, in pixel units) of the decoded position around the true pixel, from the LIOB confusion matrices; $\sqrt{1 + 12\sigma_d^2}$ widens the pixel box RMS ($p/\sqrt{12}$) by the decoding spread
+- **With realistic decoding the estimate says the advantage nearly vanishes** (0.98). Converging pixels still fix geometry (scale, parallax); their resolution gain depends on decoding quality
+- Full reconstruction comparison on the WP3 data (both pixel types, ideal and LIOB decoding, GATE and gammart) is **running**; results will be sent as an addendum
+:::
+
+## Field of view: where converging pixels lose resolved views (NEW) {.smaller}
+
+![](img/views.png){.r-stretch}
+
+| 3D distance from the helmet centre | converging: counts on resolved pixels | effective resolved views $N_{eff}$, converging / parallel | resolved sensitivity, converging / parallel |
+|:---|:---|:---|:---|
+| 0–80 mm | 100 % | identical (47 → 35) | 1.00 |
+| 80–90 mm | 98 % | 30.9 / 31.1 | 0.98 |
+| 90–100 mm | 80 % | 22.9 / 27.3 (−16 %) | 0.80 |
+| 100–110 mm | 64 % | 15.4 / 22.5 (−31 %) | 0.64 |
+
+::: {.fig-notes}
+- From the full-system first-interaction SRMs (depth of interaction, penetration, aperture width included; no shield). $S_m(j)$ = sensitivity of module $m$ to voxel $j$ summed over its resolved pixels (converging: edge strip excluded)
+- $N_{eff} = (\sum_m S_m)^2/\sum_m S_m^2$: number of modules that effectively contribute (73 = all equal, 1 = one module dominates); resolved sensitivity = $\sum_m S_m$
+- **The FOV does not shrink**: every point is still seen; beyond ≈ 85 mm, 20–36 % of a point's counts go to the edge strip (no position inside it). The central and deep brain are unaffected; the outermost cortex loses some angular sampling
+:::
+
+## Conclusions and levers
+
+- **The analytic formulas describe the simulated system:** sensitivity within 2.5 %, aperture width within 1 %; the classic quadrature is conservative at the centre and misses parallax off-centre
+- **The detector term sets the floor.** No pinhole size, mix or placement moves it; uniform C is the best aperture for this detector
+- **To improve resolution–sensitivity, change the detector term:**
+  1. finer **decoded** pixel resolution: better LIOB walls, shrinkage/ML decoding with a good noise model, or smaller pixels
+  2. less minification (longer pinhole–detector distance), within the module-radius limit and the FOV per module
+  3. converging pixels: right geometry and no parallax; their resolution gain depends on decoding
+- **Next:** decoding-aware design (P in the system model for all scorecards); aperture choice re-checked with converging pixels and realistic decoding; a magnification study within the radius limit
+
+# Backup
+
+## Square knife-edge formulas (verified)
+
+- Side widths at incidence $\theta$, azimuth $\varphi$ ($t = \tan\alpha/2 = 1$, $\Delta L = \ln 2/\mu$ = 0.191 mm):
+$$W_x = w + \Delta L\cos\theta\Big(t - \frac{\tan^2\theta\cos^2\varphi}{t}\Big),\quad W_y = w + \Delta L\cos\theta\Big(t - \frac{\tan^2\theta\sin^2\varphi}{t}\Big)$$
+- Effective area (sensitivity):
+$$A_{eff} = w^2 + \frac{w\cos\theta}{\mu t}(2t^2 - \tan^2\theta) + \frac{t^2\cos^2\theta}{\mu^2}(1-M)\big[3(1-m^2) - (1-M)^2\big],\qquad g = \frac{A_{eff}\cos^3\theta}{4\pi b^2}$$
+- **Checked:** SymPy (path length, integrals, limits; difference to Metzler & Moore 2020 eq. 22 exactly 0), exact ray trace of the GATE collimator (FWHM to 10⁻⁴ mm, area to 0.03 %), gammart Phase 0
+- **Literature:** sensitivity = Metzler & Moore 2020; side widths = Accorsi et al. 2008 slit formula (eq. 31). Not found in the ten papers read: each side behaves exactly as a slit, and the diagonal is √2 W
+
+## How the simulation chain was validated (FINAL)
+
+- **WP0:** the GATE excess at 60–100 keV was room-air backscatter plus Doppler broadening; photopeak within 1 %
+- **Pull** $= (n_{GATE} - n_{gammart})/\sigma$ per pixel or module, $\sigma$ the combined counting error; **pull rms ≈ 1** means the two codes differ only by counting noise
+- **WP1:** one converging-pixel module, GATE vs gammart window counts 0.999–1.004, pull rms 0.95–1.19
+- **WP3:** full system, Jaszczak, Derenzo, triple line: window counts per photon 1.002–1.003 (fluorescence off), pixel-map pull rms 0.98–0.99, reconstructed Derenzo V/P within 0.003
+- **WP4:** attenuation, Compton kernel and additive TEW scatter: TEW matches the true-scatter oracle in every metric except GATE cupping
+
+## Aperture information argument
+
+![](img/information_vs_frequency.png){.r-stretch}
+
+::: {.fig-notes}
+- Information of module $h$ at spatial frequency $\nu$: $F_h(\nu) = g_h\,\mathrm{MTF}_h(\nu)^2$ ($g_h$ sensitivity, MTF the module's modulation transfer function); total $F = \sum_h F_h$; plotted relative to the best pure design
+- Analytic models only (Gaussian blur / box model), point at 60 mm off-axis, converging pixels. The current mix (dashed) is never on top. The exact-matrix proxy at realistic counts ranks larger apertures higher (mean resolution 9.48 / 8.16 / 7.18 / 6.75 mm for uniform A–D)
+:::

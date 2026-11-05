@@ -1,0 +1,54 @@
+{
+ "derenzo": {
+  "ac_k_tew/gate_on": {
+   "vp_5mm": 0.229,
+   "vp_6mm": 0.112,
+   "vp_7mm": 0.033,
+   "vp_8mm": 0.013
+  },
+  "ac_k_tew#par/gate_on": {
+   "vp_5mm": 0.675,
+   "vp_6mm": 0.337,
+   "vp_7mm": 0.1,
+   "vp_8mm": 0.031
+  },
+  "ac_k_tew@conv_shrink/gate_on": {
+   "vp_5mm": 0.321,
+   "vp_6mm": 0.171,
+   "vp_7mm": 0.046,
+   "vp_8mm": 0.019
+  },
+  "ac_k_tew@par_shrink#par/gate_on": {
+   "vp_5mm": 0.746,
+   "vp_6mm": 0.381,
+   "vp_7mm": 0.117,
+   "vp_8mm": 0.038
+  }
+ },
+ "jaszczak": {
+  "ac_k_tew/gate_on": {
+   "rod_contrast.7.9": 0.816,
+   "rod_contrast.9.5": 0.889,
+   "rod_contrast.12.7": 0.961,
+   "sphere_contrast.15.9": 0.955
+  },
+  "ac_k_tew#par/gate_on": {
+   "rod_contrast.7.9": 0.538,
+   "rod_contrast.9.5": 0.823,
+   "rod_contrast.12.7": 0.89,
+   "sphere_contrast.15.9": 0.919
+  },
+  "ac_k_tew@conv_shrink/gate_on": {
+   "rod_contrast.7.9": 0.754,
+   "rod_contrast.9.5": 0.876,
+   "rod_contrast.12.7": 0.905,
+   "sphere_contrast.15.9": 0.901
+  },
+  "ac_k_tew@par_shrink#par/gate_on": {
+   "rod_contrast.7.9": 0.53,
+   "rod_contrast.9.5": 0.805,
+   "rod_contrast.12.7": 0.886,
+   "sphere_contrast.15.9": 0.926
+  }
+ }
+}

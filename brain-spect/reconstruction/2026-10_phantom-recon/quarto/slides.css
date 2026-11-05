@@ -1,0 +1,8 @@
+/* layout helpers kept outside the theme (keynote.scss) */
+.reveal .column ul { font-size: 0.95em; }
+/* compact tables: one line per cell, smaller text (e.g. the uncertainty table) */
+.reveal .compact table { font-size: 0.6em; }
+.reveal .compact td, .reveal .compact th { white-space: nowrap; padding: 0.22em 0.55em; }
+
+/* tables whose cells stay on one line (normal size) */
+.reveal .nowrap td, .reveal .nowrap th { white-space: nowrap; }

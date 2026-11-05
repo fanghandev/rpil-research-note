@@ -1,0 +1,138 @@
+{
+ "srm_dir": "/data/<user>/opengate_sim/data/brain_spect/brain_merged_123",
+ "simulated_primaries": 12620621883495,
+ "grid_size_1mm": 210,
+ "accepted_events": 6566937034,
+ "pixel_counts_total": 6566937034.0,
+ "variants": [
+  {
+   "variant": 0,
+   "pinhole_mm": 0.556,
+   "heads": 19,
+   "centre3x3_counts_mean": 164784.74269005848,
+   "centre3x3_counts_min": 164596.77777777778,
+   "centre3x3_counts_max": 164984.0,
+   "head_to_head_cv": 0.0007310017237267062
+  },
+  {
+   "variant": 1,
+   "pinhole_mm": 0.797,
+   "heads": 18,
+   "centre3x3_counts_mean": 260658.8024691358,
+   "centre3x3_counts_min": 260216.88888888888,
+   "centre3x3_counts_max": 260984.0,
+   "head_to_head_cv": 0.000674759160724255
+  },
+  {
+   "variant": 2,
+   "pinhole_mm": 1.215,
+   "heads": 18,
+   "centre3x3_counts_mean": 483291.4629629629,
+   "centre3x3_counts_min": 482676.77777777775,
+   "centre3x3_counts_max": 483938.8888888889,
+   "head_to_head_cv": 0.0005801664261471422
+  },
+  {
+   "variant": 3,
+   "pinhole_mm": 2.007,
+   "heads": 18,
+   "centre3x3_counts_mean": 1099796.7962962964,
+   "centre3x3_counts_min": 1099034.0,
+   "centre3x3_counts_max": 1100434.4444444445,
+   "head_to_head_cv": 0.0003352816125341589
+  }
+ ],
+ "angle_bins": [
+  {
+   "theta_lo": 0,
+   "theta_hi": 10,
+   "pixels": 21,
+   "relative_counts_mean": 0.9657512954413777,
+   "relative_counts_min": 0.9341846934027253,
+   "relative_counts_max": 1.0250603644376668
+  },
+  {
+   "theta_lo": 10,
+   "theta_hi": 20,
+   "pixels": 48,
+   "relative_counts_mean": 0.7928904050214193,
+   "relative_counts_min": 0.7139556179811702,
+   "relative_counts_max": 0.8848455648089849
+  },
+  {
+   "theta_lo": 20,
+   "theta_hi": 30,
+   "pixels": 116,
+   "relative_counts_mean": 0.512518169128931,
+   "relative_counts_min": 0.37683112687864967,
+   "relative_counts_max": 0.655213159318269
+  },
+  {
+   "theta_lo": 30,
+   "theta_hi": 35,
+   "pixels": 100,
+   "relative_counts_mean": 0.28933801377162505,
+   "relative_counts_min": 0.22734713240848992,
+   "relative_counts_max": 0.3597711964539943
+  },
+  {
+   "theta_lo": 35,
+   "theta_hi": 40,
+   "pixels": 120,
+   "relative_counts_mean": 0.1607336667277957,
+   "relative_counts_min": 0.11269924839122476,
+   "relative_counts_max": 0.22299496475349073
+  },
+  {
+   "theta_lo": 40,
+   "theta_hi": 45,
+   "pixels": 144,
+   "relative_counts_mean": 0.06073755082890488,
+   "relative_counts_min": 0.017418394048561932,
+   "relative_counts_max": 0.10813101562905003
+  },
+  {
+   "theta_lo": 45,
+   "theta_hi": 50,
+   "pixels": 64,
+   "relative_counts_mean": 0.006613673608676618,
+   "relative_counts_min": 0.001395694308832043,
+   "relative_counts_max": 0.014916282239972963
+  },
+  {
+   "theta_lo": 50,
+   "theta_hi": 56,
+   "pixels": 12,
+   "relative_counts_mean": 0.0016373073498780315,
+   "relative_counts_min": 0.0007075922067935979,
+   "relative_counts_max": 0.003328867290716077
+  }
+ ],
+ "central_pixel_counts": {
+  "theta_le_20": 69,
+  "theta_le_25": 121,
+  "theta_le_30": 185,
+  "theta_le_35": 285,
+  "theta_le_40": 405
+ },
+ "variant0_centre_cores": {
+  "1mm": {
+   "rows": 171,
+   "core_voxels_median": 9243.0,
+   "core_counts_per_voxel_median": 8.91839364329432,
+   "core_relative_noise_median": 0.3348549175946451
+  },
+  "2mm": {
+   "rows": 171,
+   "core_voxels_median": 1410.0,
+   "core_counts_per_voxel_median": 58.4479092841956,
+   "core_relative_noise_median": 0.1308023388520147
+  }
+ },
+ "target_288": {
+  "primaries": 101600000000000.0,
+  "fov_mm": 288.0,
+  "density_ratio_vs_210": 3.1209971601623234,
+  "variant0_centre_counts_from_210_sphere": 514292.7139737517
+ }
+}

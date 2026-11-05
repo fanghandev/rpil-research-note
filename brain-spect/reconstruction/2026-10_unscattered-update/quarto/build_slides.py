@@ -1,0 +1,423 @@
+"""Writes slides.qmd: the fixed parts below plus the per-algorithm result slides (OSEM 8 and MLEM get the
+same set). Run from quarto/ after editing; the preview picks up the new slides.qmd."""
+from pathlib import Path
+
+HEAD = Path("slides_head.tmp").read_text() if Path("slides_head.tmp").exists() else Path("slides.qmd").read_text().split("## Summary")[0]
+
+INTRO = r'''## Summary
+
+- **Attenuation correction (AC) removes the bright rim at the phantom wall.** What remains is a narrow band of about `{python} pct(m("osem8_ac", 1000, "wall_overshoot"), 0)` just inside the wall, the Gibbs-like edge overshoot of maximum-likelihood reconstruction (Snyder et al. 1987); an 8 mm post-filter removes it
+- **OSEM with 8 subsets (new) gives the MLEM image at the same number of updates, 8× faster**, as long as the model includes AC; without AC it is far noisier than MLEM
+- **No support threshold is needed:** the phantom image is the same with or without it
+- **With an 8 mm post-filter, OSEM 8 at 8000 updates is stable** within the statistical error; without a filter, contrast and noise keep rising
+
+## What this update covers
+
+- **New: OSEM** (ordered subsets, 8 subsets of detector modules), compared with MLEM
+- **Data:** only the unscattered main-window counts (photons that did not scatter in the phantom; tagged in the simulation): the cleanest test of the reconstruction itself
+- **Not used here:** no TEW scatter correction, no support threshold (every voxel with non-zero sensitivity is reconstructed)
+- **System matrix:** 2 mm Gate SRM, with and without attenuation correction (AC)
+- **Questions:**
+  1. Does OSEM give the MLEM image, faster?
+  2. Where does the bright rim at the phantom wall come from, and what does AC remove?
+  3. When do contrast, noise and activity recovery stop changing, and with which post-filter?
+
+## Setup: scanner and phantom
+
+:::: {.columns}
+::: {.column width="62%"}
+![](img/small_jaszczak_in_helmet.png){width=100%}
+:::
+::: {.column width="38%"}
+- **Scanner:** 73 pinhole modules on 7 rings; 25 × 25 CsI pixels of 2 mm per module; tungsten apertures of 0.56, 0.80, 1.22 and 2.01 mm
+- **Phantom:** small Jaszczak, upside down, centred 25 mm below the system centre; cold PMMA rods 4.8–12.7 mm and spheres 6.4–25.4 mm in water
+- **Acquisition:** 15 mCi Tc-99m, 15 min, GATE 10; 80.4 M unscattered main-window counts
+:::
+::::
+
+## Reconstruction volume: the R = 144 mm sphere
+
+:::: {.columns}
+::: {.column width="66%"}
+![](img/brain_fov_coverage_slices.png){height=660px}
+:::
+::: {.column width="34%"}
+- **Grid:** 144 × 144 × 144 voxels of 2 mm (a 288 mm cube), the grid of the Gate SRM
+- **Source region:** the sphere of radius 144 mm (orange: the largest sphere that does not touch the modules); the SRM was simulated over it
+- **Reconstructed voxels:** the 1.61 M voxels (of 2.99 M) with non-zero sensitivity, i.e. those inside or touching that sphere
+- **Black dashed:** the nominal FOV, R = 105 mm, seen by all 73 modules (red); the sensitivity falls outside it
+- **AC:** every module's SRM rows × the phantom's transmission from each voxel to that module's pinhole (ray-traced, gammart)
+:::
+::::
+
+## Runs
+
+| run | algorithm | AC | saved iterations | updates | time / iteration |
+|:--|:--|:-:|:--|:--|:-:|
+| `osem8_noac` | OSEM, 8 subsets | no | 1, 2, 5, 10, …, 1000 | 8 – 8000 | `{python} f2(META.get("osem8_noac", {}).get("s_per_iteration"))` s |
+| `osem8_ac` | OSEM, 8 subsets | yes | 1, 2, 5, 10, …, 1000 | 8 – 8000 | `{python} f2(META.get("osem8_ac", {}).get("s_per_iteration"))` s |
+| `mlem_noac` | MLEM | no | 1, 2, 5, 10, …, 5000 | 1 – 5000 | `{python} f2(META.get("mlem_noac", {}).get("s_per_iteration"))` s |
+| `mlem_ac` | MLEM | yes | 1, 2, 5, 10, …, 5000 | 1 – 5000 | `{python} f2(META.get("mlem_ac", {}).get("s_per_iteration"))` s |
+
+- **Update:** one image update from a subset of the data. MLEM uses all data in each update (1 update per iteration); OSEM cycles through 8 subsets (8 updates per iteration) at the same cost per iteration, so it reaches a given number of updates 8× sooner
+- Every result is shown without a post-filter and with an 8 mm FWHM Gaussian post-filter; uniform start image
+
+## OSEM subsets: which modules go together
+
+![](img/subsets_8_map.png){width=100%}
+
+- Modules ordered ring by ring and by azimuth, then dealt out round-robin: every subset has 1–3 modules in each of rings 0–4
+- Some subsets leave 150–160° of azimuth empty (e.g. subset 0): a more even split is a possible improvement
+
+## OSEM subsets in 3D
+
+![](img/subsets_8_3d.png){width=100%}
+
+- Crystal faces coloured by subset (number on each module = its subset); dots: pinholes; grey: the phantom's water cylinder and the FOV sphere
+
+## OSEM subsets, one at a time
+
+![](img/subsets_8_3d_each.png){width=96%}
+
+# How the images are scored
+
+## Regions behind every metric
+
+![](img/illus_regions.png){width=100%}
+
+- **Planes** used for images and profiles: uniform (z = −70 mm), spheres (z = −28 mm), rods (z = +29 mm)
+- **Uniform section:** z −80 to −60 mm, r < 50 mm, no inserts: recovery and noise
+- **Central level** (r < 30 mm in the uniform section): divides every image and profile, so runs with and without AC compare in shape
+
+## Ring means: how a radial profile is made
+
+![](img/illus_ring_means.png){height=480px}
+
+- **Ring $k$:** the slab's voxels (6 mm around the plane) with $2k \le r < 2k+2$ mm, all azimuths; in the rod and sphere planes without the inserts and 3 mm around them
+- **Ring mean:** $\ p(r_k) = \frac{1}{N_k}\sum_{j \in \text{ring } k} \lambda_j \,/\, L$ at $r_k = 2k + 1$ mm ($L$: central level). Averaging over the azimuth removes noise, keeps any change with $r$
+
+## Line profiles: where the lines run
+
+![](img/illus_lines.png){width=78%}
+
+- **Rod plane:** per sector, the longest row of rods, one rod pitch past both ends; mean over ±3 mm in z and a 2 mm band across the line
+- **Sphere plane:** per sphere, a radial line from the axis through its centre to r = 85 mm, past the outer wall; mean over ±1 mm in z and a 2 mm band
+- Sampled every 0.5 mm (trilinear), ÷ the central level; truth from the 1 mm phantom grid (water = 1)
+
+## Contrast
+
+:::: {.columns}
+::: {.column width="62%"}
+![](img/illus_contrast_masks.png){width=100%}
+:::
+::: {.column width="38%"}
+Cold contrast of an insert (1 = empty, 0 = invisible):
+$$C = 1 - \frac{\bar\lambda_{\text{insert}}}{\bar\lambda_{\text{background}}}$$
+
+- $\bar\lambda$: mean reconstructed value over the voxels shown
+- **Insert:** voxels whose centre lies inside the rod or sphere
+- **Rod background:** water between the rods of the sector, > 2 mm from any rod
+- **Sphere background:** water 4–12 mm outside the surface, > 4 mm from other inserts
+:::
+::::
+
+## Activity recovery and the central level {.smaller}
+
+Recovery (1.00 = the true activity concentration):
+$$R = \frac{\bar\lambda_{\text{uniform section}}}{\lambda_{\text{true}}}, \qquad \lambda_{\text{true}} = \frac{N_{\text{phantom}} / V_{\text{water}}}{N_{\text{SRM}} / V_{\text{FOV}}}$$
+
+- $N_{\text{phantom}}$: decays simulated in the phantom; $V_{\text{water}}$: its water volume; $N_{\text{SRM}}$, $V_{\text{FOV}}$: photons and volume of the SRM simulation; $\lambda$ is in SRM photons per voxel
+- Without AC the reconstructed level is about `{python} f2(m("osem8_noac", 100, "recovery"))`× the truth: photons lost in the water are read as missing activity
+
+Central level, the normalisation of images and profiles:
+$$L = \bar\lambda_{\,z \in [-80,\,-60]\ \text{mm},\ r < 30\ \text{mm}}$$
+
+Rim / centre, uniformity across the uniform section (1 = flat):
+$$U = \bar\lambda_{60 \le r < 70\ \text{mm}} \,\big/\, \bar\lambda_{r < 10\ \text{mm}}$$
+
+## Noise: coefficient of variation (CoV)
+
+![](img/illus_cov.png){width=100%}
+
+- **Spatial CoV** of one image: the spread of the voxel values in the uniform section, which should all be equal: $\ \mathrm{CoV} = \sigma / \mu$ over its voxels
+- **Ensemble CoV** (from the bootstrap, later): the spread of each voxel over 20 repeated reconstructions, $\ \sqrt{\langle s_j^2\rangle} \,/\, \langle m_j \rangle$ over the uniform section ($m_j$, $s_j$: mean and SD of voxel $j$); free of any real non-uniformity
+
+## Post-filter
+
+![](img/illus_filter.png){width=100%}
+
+- Applied after the reconstruction: every voxel becomes the Gaussian-weighted mean of its neighbours (3D, FWHM 8 mm)
+- It removes fine detail: noise (most of it), the narrow band at the wall, and some contrast of small inserts; smooth trends such as a level that rises across the phantom stay
+
+## Error bars: the bootstrap
+
+![](img/illus_bootstrap.png){width=100%}
+
+- **Purpose:** the statistical error of every metric (contrast, recovery, noise) at the full counts, from the one acquisition we have
+- **How:** each copy redraws the 80.4 M counts at random over the 45,625 detector pixels, with each pixel's probability = its measured share (the events resampled with replacement); each copy is reconstructed like the data; the SD over the 20 copies is the error bar
+- **Limits:** 20 copies give the SD to about ±16 %; pixels with very few counts cannot fluctuate (467 pixels have 0 counts), so the noise there is underestimated; a check against independent Poisson data is planned
+'''
+
+ALG = {"osem8": ("OSEM 8", "iteration 5 → 1000 (40 → 8000 updates)"), "mlem": ("MLEM", "iteration 20 → 2000")}
+
+
+def rim_section(alg):
+    name = ALG[alg][0]
+    it_a, it_b = (100, 1000) if alg == "osem8" else (100, 5000)
+    u = (lambda i: i * 8) if alg == "osem8" else (lambda i: i)
+    s = f'''
+# The bright rim at the phantom wall: {name}
+
+## {name}, sphere plane, no filter: without AC the wall turns bright
+
+![](img/slices_spheres_{alg}_f0.png){{width=100%}}
+
+- Grey scale: 0 (black) to 1.6× the central level (white); anything brighter is also white. Red circle and label: the hottest voxel of each slice, always at the FOV edge outside the phantom (see the FOV-edge section)
+- **No AC (top):** the wall is brighter than the centre from the first iterations; at many updates the image breaks up into noise (spatial CoV `{{python}} f2(m("{alg}_noac", {it_a}, "cov_voxel"))` at {u(it_a)} updates, `{{python}} f2(m("{alg}_noac", {it_b}, "cov_voxel"))` at {u(it_b)})
+- **With AC (bottom):** level background; noise grows more slowly (`{{python}} f2(m("{alg}_ac", {it_a}, "cov_voxel"))` and `{{python}} f2(m("{alg}_ac", {it_b}, "cov_voxel"))`)
+
+## {name}, sphere plane, 8 mm filter
+
+![](img/slices_spheres_{alg}_f8.png){{width=100%}}
+
+- Same grey scale and markers. The filter removes most of the noise in both rows, but without AC the bright wall stays: it is a smooth error across the whole phantom, not noise
+
+## {name}, uniform plane: how the profile develops
+
+:::: {{.columns}}
+::: {{.column width="80%"}}
+![](img/profiles_uniform_{alg}_f0.png){{width=100%}}
+:::
+::: {{.column width="20%"}}
+![](img/illus_plane_uniform.png){{width=100%}}
+:::
+::::
+
+- Mean over each 2 mm ring around the phantom axis (all azimuths) in a 6 mm slab at z = −70 mm, ÷ the central level; no filter
+- No AC: the rise toward the wall grows with the iterations. With AC: flat, plus a narrow peak just inside the wall that forms early and then stays
+
+## {name}, uniform plane, no filter: AC removes the rise toward the wall
+
+:::: {{.columns}}
+::: {{.column width="80%"}}
+![](img/ac_vs_noac_uniform_{alg}_f0.png){{width=100%}}
+:::
+::: {{.column width="20%"}}
+![](img/illus_plane_uniform.png){{width=100%}}
+:::
+::::
+
+- Ring means from the axis to the FOV edge (r = 126 mm at z = −70 mm), ÷ the central level; grey: the truth
+- **No AC (orange):** the attenuation artefact. Photons from the centre cross more water, so a model without attenuation reads too little activity in the centre relative to the wall: the level climbs toward the wall
+- **With AC (blue):** flat at 1.0 out to r ≈ 55 mm, then a narrow peak just inside the wall
+
+## {name}, uniform plane, 8 mm filter
+
+:::: {{.columns}}
+::: {{.column width="80%"}}
+![](img/ac_vs_noac_uniform_{alg}_f8.png){{width=100%}}
+:::
+::: {{.column width="20%"}}
+![](img/illus_plane_uniform.png){{width=100%}}
+:::
+::::
+
+- Same profiles after the 8 mm filter. **No AC:** the rise toward the wall stays (smooth, so the filter keeps it). **With AC:** the narrow peak is gone; the profile is flat up to the wall, where the filter blurs the edge
+
+## {name}: the wall band in numbers {{.smaller}}
+
+$$B = \\frac{{\\max_{{\\,W-15 \\,\\le\\, r \\,\\le\\, W}} p(r)}}{{\\overline{{p}}_{{\\,W-40 \\,\\le\\, r \\,\\le\\, W-25}}}} - 1, \\qquad U = \\frac{{\\bar\\lambda_{{\\,60 \\le r < 70}}}}{{\\bar\\lambda_{{\\,r < 10}}}}$$
+
+$p(r)$: the ring-mean profile of the uniform plane; $W$ = 69.5 mm, the water's edge; $B$: height of the peak inside the wall above the plateau 25–40 mm further in; $U$: rim / centre in the uniform section.
+
+{band_table(alg)}
+
+- **Without AC:** $U$ well above 1 and $B$ large, also after the filter: the attenuation artefact, a smooth error the filter cannot remove
+- **With AC:** $U$ just below 1 and $B$ ≈ `{{python}} pct(m("{alg}_ac", {it_b}, "wall_overshoot"), 0)`: a narrow peak that appears early and then stays; the 8 mm filter brings $B$ to ≈ 0. This is the edge overshoot of maximum-likelihood reconstruction described by Snyder et al. (1987), seen before in our noise-free tests
+'''
+    for plane, z, edge in (("rods", "+29", 141), ("spheres", "−28", 141)):
+        for f in (0, 8):
+            s += f'''
+## {name}, {plane[:-1] if plane == "rods" else "sphere"} plane, {"no filter" if f == 0 else "8 mm filter"}
+
+:::: {{.columns}}
+::: {{.column width="80%"}}
+![](img/ac_vs_noac_{plane}_{alg}_f{f}.png){{width=100%}}
+:::
+::: {{.column width="20%"}}
+![](img/illus_plane_{plane}.png){{width=100%}}
+:::
+::::
+
+- Ring means at z = {z} mm, 6 mm slab, the inserts and 3 mm around them left out (only water between them), from the axis to the FOV edge (r = {edge} mm); ÷ the central level
+- {"Same picture as in the uniform plane: without AC the level rises toward the wall; with AC a narrow peak inside the wall" if f == 0 else "After the 8 mm filter: without AC the rise stays, with AC the peak goes"}
+'''
+    early, last = (100, 1000) if alg == "osem8" else (500, 5000)
+    for plane in ("rods", "spheres"):
+        for f in (0, 8):
+            s += f"""
+## {name}, line profiles {"across the rod rows" if plane == "rods" else "through the spheres"}, {"no filter" if f == 0 else "8 mm filter"}
+
+:::: {{.columns}}
+::: {{.column width="84%"}}
+![](img/lines_{plane}_{alg}_f{f}.png){{height=590px}}
+:::
+::: {{.column width="16%"}}
+![](img/illus_lines_{plane}.png){{width=100%}}
+:::
+::::
+
+- Grey: truth; light blue: AC, {u(early)} updates; blue: AC and orange: no AC, {u(last)} updates; numbers: lines at right
+"""
+    return s
+
+
+def band_table(alg):
+    its = [5, 20, 100, 1000] if alg == "osem8" else [20, 100, 1000, 5000]
+    ups = [i * 8 for i in its] if alg == "osem8" else its
+    rows = ["| | | " + " | ".join(f"{u} updates" for u in ups) + " |", "|:--|:--|" + ":-:|" * len(its)]
+    for ac, lab in (("noac", "**no AC**"), ("ac", "**with AC**")):
+        for key, f, what in (("wall_overshoot", 0, "$B$, no filter"), ("wall_overshoot", 8, "$B$, 8 mm"), ("rim_over_centre", 0, "$U$, no filter")):
+            cells = " | ".join(f'`{{python}} f2(m("{alg}_{ac}", {i}, "{key}", {f}))`' for i in its)
+            rows.append(f"| {lab if key == 'wall_overshoot' and f == 0 else ''} | {what} | {cells} |")
+    return "\n".join(rows)
+
+
+REST = r'''
+# Without a support threshold: the FOV edge
+
+## OSEM 8, coronal plane, no filter: activity collects at the FOV edge
+
+![](img/slices_coronal_osem8_f0.png){width=92%}
+
+- Coronal plane through the axis (y = 0); grey 0 to 1.6× the central level, brighter is white; red: the hottest voxel, `{python} n(round(m("osem8_ac", 1000, "outside_fraction") * 100))` % of all activity is in voxels like it at 8000 updates (with AC)
+
+## Most of the activity ends up at the FOV edge; the phantom does not change
+
+- **Where:** in a few voxels at the surface of the R = 144 mm sphere. They barely see the detectors, so a large value there explains only a few counts
+- **How much:** activity more than 6 mm outside the phantom, OSEM 8 with AC: `{python} pct(m("osem8_ac", 5, "outside_fraction"), 0)` at 40 updates, `{python} pct(m("osem8_ac", 1000, "outside_fraction"), 0)` at 8000 (without AC `{python} pct(m("osem8_noac", 1000, "outside_fraction"), 0)`)
+- **Effect on the phantom:** compared with the same reconstruction using the support threshold (voxels below 1,000 counts frozen), every contrast, the recovery and the noise agree to ≤ `{python} f3(support_diff(100))` up to 800 updates and ≤ `{python} f3(support_diff(1000))` up to 8000 (bootstrap SD there 0.02–0.03); the 6.4 mm sphere, too noisy to measure, differs by `{python} f3(abs(m("osem8_ac", 1000, "sphere_6.4mm") - m("reference_support1000", 1000, "sphere_6.4mm")))` (its SD 0.22)
+- **So:** the support threshold is optional; the "outside" share measures the FOV edge, not the phantom
+
+# Convergence and noise: OSEM 8 with AC
+
+## OSEM 8 with AC: rod contrast against updates
+
+![](img/ref_contrast_rods_vs_updates_linear.png){width=96%}
+
+## OSEM 8 with AC: sphere contrast against updates
+
+![](img/ref_contrast_spheres_vs_updates_linear.png){width=96%}
+
+## OSEM 8 with AC: recovery, uniformity and noise against updates
+
+![](img/ref_recovery_noise_vs_updates_linear.png){width=96%}
+
+## OSEM 8 with AC: rod contrast against noise
+
+![](img/ref_contrast_noise_rods_linear.png){width=96%}
+
+## OSEM 8 with AC: sphere contrast against noise
+
+![](img/ref_contrast_noise_spheres_linear.png){height=560px}
+
+- At the same noise, less filtering with fewer updates gives at least as much contrast as more filtering with more updates
+
+## OSEM 8 with AC: when does the rod contrast stop changing?
+
+![](img/ref_stability_rods_linear.png){height=430px}
+
+- Each line: the change of one sector's contrast $C$ over a doubling of the updates ($N \to 2N$), ÷ its bootstrap SD at $2N$; below 1 (grey line) = within the statistical error
+- Rods settle last: 9.5–12.7 mm after 1000–4000 updates; the 6.4 and 7.9 mm rods are still changing at 8000 (ratio `{python} f2(REF_STAB["0"]["rods_6.4mm"]["ratio"][-1])` and `{python} f2(REF_STAB["0"]["rods_7.9mm"]["ratio"][-1])` without a filter, `{python} f2(REF_STAB["8"]["rods_6.4mm"]["ratio"][-1])` and `{python} f2(REF_STAB["8"]["rods_7.9mm"]["ratio"][-1])` with 8 mm)
+
+## OSEM 8 with AC: when does the sphere contrast stop changing?
+
+![](img/ref_stability_spheres_linear.png){height=440px}
+
+- Same quantity for each sphere. The 12.7–25.4 mm spheres settle after about 500–2000 updates
+- **Dashed, the 6.4 and 9.5 mm spheres:** below 1 from 64–128 updates only because their SD is large (0.03–0.23): their contrast keeps rising, but by less than their noise. Not measurable at these counts, rather than converged
+
+## OSEM 8 with AC: when does the recovery stop changing?
+
+![](img/ref_stability_recovery_linear.png){width=82%}
+
+- Change of the recovery $R$ (uniform-section mean ÷ truth) over each doubling, ÷ its bootstrap SD: within the error from 256 updates on, with or without a filter; the level is set early and the filter does not move it
+
+## OSEM 8 with AC: change between 4000 and 8000 updates {.smaller}
+
+Each cell: $\Delta M = M(8000) - M(4000)$ ± its bootstrap SD at 8000 updates; ✓ = the change is smaller than the SD (stable); **bold** = still changing.
+
+```{python}
+#| output: asis
+print(stab_table())
+```
+
+- **A reconstruction that can be cited:** OSEM 8, 8000 updates, 8 mm filter: every change within about 1.5 SD; 10 mm if it must be strictly converged, at a further loss of contrast
+
+# Where in the phantom: OSEM 8 with AC
+
+## OSEM 8 with AC: rod contrast depends on the rod's distance from the axis
+
+![](img/ref_rod_contrast_vs_radius.png){width=100%}
+
+- Within a sector, rods further out have higher contrast: the wall is closer to the pinholes, where the resolution is better (as classic pinhole theory predicts)
+
+## OSEM 8 with AC: recovery and noise across the uniform section
+
+![](img/ref_radial_uniform_section.png){width=100%}
+
+- Recovery (left): $\bar\lambda / \lambda_{\text{true}}$ per 2 mm ring in the uniform section, mean over the bootstrap copies: flat at 1.0 to r ≈ 55 mm, then the wall band; gone with the 8 mm filter
+- Noise (right): bootstrap SD ÷ mean per voxel, ring means: without a filter it rises toward the wall; with the 8 mm filter it is highest near the axis
+
+# MLEM and OSEM
+
+## Rod contrast: with AC, MLEM and OSEM follow one curve
+
+![](img/contrast_rods_f0.png){width=100%}
+
+- Without AC the two separate, and both show higher "contrast": the inserts are compared with a background that is too bright near the wall (a wrong image, not better resolution)
+
+## Sphere contrast
+
+![](img/contrast_spheres_f0.png){width=100%}
+
+## Recovery, uniformity, noise and wall band
+
+![](img/global_f0.png){width=100%}
+
+- **With AC:** OSEM has the level right after one iteration (recovery `{python} f2(m("osem8_ac", 1, "recovery"))` after 8 updates); MLEM gets there over the first few hundred (`{python} f2(m("mlem_ac", 20, "recovery"))`, `{python} f2(m("mlem_ac", 100, "recovery"))`, `{python} f2(m("mlem_ac", 500, "recovery"))` at 20, 100, 500 updates); after that they agree
+- **Without AC:** OSEM is no longer MLEM: noise `{python} f1(m("osem8_noac", 1000, "cov_voxel"))` at 8000 updates vs `{python} f1(m("mlem_noac", 5000, "cov_voxel"))` for MLEM at 5000. Each subset disagrees with the model in its own way and pulls the image its own way
+
+## OSEM − MLEM at the same number of updates, with AC, no filter {.smaller}
+
+Each cell: OSEM 8 − MLEM ± the bootstrap SD of that metric at that number of updates; ✓ = the difference is smaller than the SD; **bold** = larger.
+
+```{python}
+#| output: asis
+print(om_table())
+```
+
+- MLEM and OSEM were saved at different update counts: MLEM is interpolated in log(updates) between its saved iterations
+- **Time:** 4000 updates take `{python} f1(500 * META.get("osem8_ac", {}).get("s_per_iteration", 0) / 60)` min with OSEM 8 and `{python} f1(4000 * META.get("mlem_ac", {}).get("s_per_iteration", 0) / 60)` min with MLEM (RTX 3080 Ti)
+
+# Conclusions
+
+## What the unscattered data show
+
+1. **The bright rim without AC is the attenuation artefact.** The level rises toward the wall (rim / centre up to `{python} f2(m("mlem_noac", 1000, "rim_over_centre"))`) and no post-filter removes it. With AC the image is flat and the level is right (recovery `{python} f2(m("osem8_ac", 1000, "recovery"))`)
+2. **With AC, a narrow band remains just inside the wall** (about `{python} pct(m("osem8_ac", 1000, "wall_overshoot"), 0)` above the plateau): the edge overshoot of maximum-likelihood reconstruction, a Gibbs-like ringing that appears even with noise-free data (Snyder, Miller, Thomas and Politte, IEEE Trans. Med. Imaging 6:228, 1987). It forms early and then stays; an 8 mm post-filter removes it
+3. **OSEM 8 = MLEM at the same number of updates, 8× faster,** when AC is in the model; without AC, OSEM is far noisier than MLEM
+4. **No support threshold is needed:** activity collects at the FOV edge, but the phantom image does not change
+5. **Without a post-filter nothing settles** (contrast and noise keep rising). **OSEM 8, 8000 updates, 8 mm filter** is stable within the statistical error: a reference that can be cited
+
+## Next
+
+- **Scatter:** model it ($y \sim H\lambda + s$) instead of subtracting it, then the same analysis on the full data
+- **A convergent algorithm:** BSREM with a relative-difference prior, on the same contrast-against-noise axes
+- **Error budget** of this reconstruction (system, algorithm, discretisation, noise, model mismatch): set up separately on ERIS
+- Optional: more even OSEM subsets; a check of the bootstrap error bars against independent Poisson data
+'''
+
+body = INTRO + rim_section("osem8") + rim_section("mlem") + REST
+Path("slides.qmd").write_text(HEAD + body)
+print("slides.qmd written")

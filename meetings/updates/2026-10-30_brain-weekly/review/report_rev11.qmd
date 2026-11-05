@@ -1,0 +1,690 @@
+---
+title: "Brain SPECT weekly update, 26–30 October 2026"
+subtitle: "Detector, simulation chain, scatter correction, resolution and apertures"
+author: "Fang Han"
+date: 2026-10-30
+date-format: "D MMMM YYYY"
+format:
+  typst:
+    papersize: us-letter
+    margin:
+      x: 2cm
+      y: 2.1cm
+    fontsize: 10pt
+    mainfont: "Libertinus Serif"
+    section-numbering: "1.1"
+    toc: false
+    fig-format: png
+    include-in-header: _header.typ
+bibliography: references.bib
+bibliographystyle: ieee
+reference-section-title: "References"
+crossref:
+  eq-prefix: "Eq."
+  sec-prefix: "§"
+---
+
+<!--
+Build: ./build.sh (figures, then render). Every number has a source comment. Paths are relative to
+~/Work/RPIL/QMIRT/. PLAN = pytorch-optix/docs/paper2_plan.md (WP4 section as corrected 2026-10-30).
+FN = img/figure_numbers.json (written by scripts/make_figures.py from the data files).
+Status labels: FINAL, PROVISIONAL, PROPOSED (decision pending), PLANNED (not run), PARKED.
+Revision 1 (2026-10-30): fact, editorial and citation reviews in review/; changes listed in ingredients/draft_log.md.
+-->
+
+**INTERNAL** — contains the exact geometry and aperture widths of the brain system.
+
+# Summary and decisions needed {#sec-summary}
+
+This report answers the resolution and aperture questions first: what limits resolution in this geometry, why uniform apertures win, and where "about 7 mm" and "2–2.5×" come from. It then documents the work behind them: GATE and gammart now agree on the full brain system, and the first corrected reconstructions approach the primary-only reference. *Terms:* WP = work package of the paper-2 plan (WP0 spectrum check, WP1 one module, WP2 gammart system model, WP2b aperture placement, WP3 full-system GATE, WP4 reconstruction corrections); paper 2 = the brain-system design paper; A–D = the four square pinhole widths, 0.556 / 0.797 / 1.215 / 2.007 mm; gammart = our GPU ray tracer and Monte Carlo (MC).
+
+<!-- source: PLAN "WP0 results", "WP1 and WP2 results", "WP3 results", "WP4 results" (corrected 2026-10-30); out/wp3/wp3_results.json; out/wp4/wp4_results.json; 2026-10-28_analytic_resolution -->
+
+**Key results, most important first**
+
+1. **Resolution is limited by the 2 mm detector pixel, not by the pinhole (@sec-limit).** In this minifying geometry ($b/f$ = 5.5 at the centre) a 2 mm pixel projects to 11.1 mm at the object, against 4.9–9.2 mm for the aperture term of A–C. The detector is the largest blur for 55 of the 73 modules; only aperture D is aperture-limited. A 6 mm detector term would need about 1.1 mm pixels; converging pixels cut it by 23 %. These numbers assume ideal LIOB decoding; measured decoding errors (about a third of events placed in a neighbouring pixel) would widen the detector term further and are not yet modelled (@sec-open).
+2. **Uniform apertures beat mixed ones (PROVISIONAL, @sec-apertures).** No mixed design tested beats uniform C (1.215 mm): 8 mm V/P 0.41 vs 0.48 for the current mix (1.8 between-map SDs). The only published uniform-vs-mixed test agrees: Zannoni, Yang and Meng found that a 0.5/1.5/3 mm mix resolves 6 mm rods where uniform 1 mm resolves 4 mm, at higher sensitivity [@zannoni2021]. With the detector term dominant, a smaller pinhole buys little resolution at a large cost in counts.
+3. **"About 7 mm" and "2–2.5×" (@sec-rule).** "About 7 mm" is the aperture term alone; a module at the centre gives 12.1 mm (A) to 18.2 mm (D), and the count-weighted value over all 73 modules is 15.5 mm. Against the reconstructed ≈ 6 mm the analytic estimates give factors of 1.2–2.6 (@tbl-ratio); "2–2.5×" corresponds to the count-weighted classic formula near the centre and is inflated by the Gaussian-quadrature convention (1.9× against the true box ⊗ box profile). The earlier 6.4 mm point response is withdrawn (Monte Carlo noise in the GATE matrix).
+4. **The simulation chain is validated (FINAL, @sec-chain).** Full system, three water phantoms: GATE/gammart window counts per photon 1.0022 / 1.0027 / 1.0032 (fluorescence off); reconstructed Derenzo V/P within 0.003. The 60–90 keV spectrum excess was room-air backscatter plus Doppler broadening, both below the window.
+5. **Corrected reconstruction works (FINAL for these phantoms, @sec-wp4).** Attenuation, Compton-centroid kernel and an additive triple-energy-window (TEW) scatter term: TEW matches the true-scatter oracle within one split SD in every metric except GATE cupping, and with GATE's counts reaches the primary-only reference on 6 mm V/P (0.112 vs 0.108) and the 25.4 mm sphere. The gammart images in that section look noisier only because that run has 12–28× fewer counts than GATE; at matched counts the two codes agree.
+6. **Converging pixels remove the parallax and fix the scale on measured data (FINAL, @sec-wp1, @sec-scale).** Radial spot FWHM 1.91 → 1.81 mm from 0° to 35°, against 1.73 → 2.25 mm for parallel 2 mm pixels; GATE and gammart agree to 0.9991–1.0035. On measured triple-line data from the cardiac converging-pixel prototype, parallel-pixel matrices reconstruct the phantom 13–14 % too large; the converging-pixel matrix gives the true size within 1–3 % and sharper lines (@fig-scale).
+7. **The edge strip matters for extended objects (PROPOSED, @sec-strip).** CsI outside the outermost converging wall holds 6.2 % (Jaszczak) and 7.5 % (triple line) of window events, up to 22 % in one module.
+
+**Decisions needed** (default in italics; the plan sets no dates, so each item names the work it blocks)
+
+1. **Apertures (@sec-apertures).** *Uniform C if the four-size inventory is not fixed; otherwise an annealed placement map.* Blocks WP5.
+2. **Edge strip (@sec-strip).** *Keep it as a response element in data and model* (alternative: limit each module's view to about 33°). Blocks the WP2b re-check.
+3. **Resolution numbers (@sec-resolution).** *Quote Derenzo and spheres with iterations, noise and filter; name the quadrature convention with "2–2.5×";* never the line FWHM or the point response as absolute resolution.
+4. **Scatter (@sec-wp4).** *Additive TEW for paper 2; model-based scatter stays parked.*
+5. **Resolution chain (@sec-resolution).** *Approve Phases 1–3* (point response measured inside the Derenzo, V/P prediction, triple line on a 1 mm grid). Blocks WP5.
+
+## Notation {.unnumbered}
+
+| symbol | meaning | value here |
+|:---|:---|:---|
+| $b$, $r$ | point to aperture plane (along the module axis); slant distance | $b$ = 149.6 mm at the centre, 53–247 mm over the FOV |
+| $\rho$ | distance from the scanner axis (image radius) | FOV ρ ≤ 142 mm |
+| $f$ | pinhole to mean interaction depth | 27 mm (25 mm to the entrance + mean depth, rounded) |
+| $\theta$ | incidence angle from the module axis | up to 41° over the FOV |
+| $w$ | side of the square aperture | A/B/C/D = 0.556 / 0.797 / 1.215 / 2.007 mm |
+| $d_{re}$, $W$ | resolution-effective width (with penetration) | $w + 0.191$ mm at $\theta = 0$ |
+| $A_{eff}$, $w_s$ | penetration-effective area, $w_s^2 = A_{eff}(0)$ | C: 2.297 mm² |
+| $\mu$, $t$ | tungsten attenuation at 140.5 keV; $\tan(\alpha/2)$, $\alpha$ the knife-edge opening angle | 3.63 mm⁻¹; 1.000 |
+| $p$ | detector pixel pitch at depth $f$ | 2 mm (parallel); converging: $2z/35$, $z$ = distance from the pinhole |
+| $R_g$, $R_i$, $R$ | aperture term, detector term, quadrature total (FWHM at the object) | @eq-res |
+| $g$ | geometric sensitivity per emitted photon | @eq-sens |
+| $x$, $y_i$, $\bar y_i$ | image (144³ voxels of 2 mm); measured and expected counts in row $i$ | |
+| $\Gamma$, $H$, $K$, $s_i$ | attenuation factors, first-interaction matrix, Compton-centroid kernel, additive scatter | @eq-model |
+
+: Notation. Units are mm unless stated. {#tbl-notation tbl-colwidths="[13,47,40]"}
+
+*Abbreviations.*
+
+- **Reconstruction:** OSEM, ordered-subset expectation maximisation [@hudson1994]; AC, attenuation correction; K, kernel; TEW, triple-energy-window scatter estimate [@ogawa1991]; oracle, TEW replaced by the true scatter from the truth Monte Carlo.
+- **Image metrics:** V/P, valley-to-peak ratio of a Derenzo sector (lower is better); CRC, contrast recovery coefficient; NRMSE, normalised root-mean-square error; CNR, contrast-to-noise ratio; S/B, signal-to-background ratio.
+- **Resolution analysis:** LIR, local impulse response; DOI, depth of interaction.
+- **Statistics:** pull rms, rms of (GATE − gammart)/σ over pixels or modules; split SD, SD over the four independent quarters of the GATE data.
+- **Other:** SU, Expanse service unit; XCAT, the digital head phantom used in the aperture scorecard.
+
+<!-- source: ingredients/facts.md "System (internal)"; 2026-10-28_analytic_resolution/analytic_baseline.qmd "The formulas and the constants"; derivation/square_pinhole.md §1, §5.2; PLAN §2 -->
+
+**System.** The helmet has 73 modules whose pinholes sit on a sphere of radius 149.6 mm, all aimed at the centre. Each pinhole is a square, double-sided knife edge, 45° on both sides.
+
+- **Apertures:** A/B/C/D = 0.556 / 0.797 / 1.215 / 2.007 mm. The current map uses 19/18/18/18 modules of A/B/C/D; the annealed map used in WP3 uses 18/18/18/19.
+- **Detector:** behind each pinhole is a 50 × 50 × 10 mm CsI:Tl block, 25 mm from the pinhole to the entrance face.
+- **Energy:** 11.8 % FWHM at 140 keV (the plan's value, from [@zhang2026]), main window 126–154 keV.
+- **Simulation:** GATE 10 (opengate) [@jan2004; @sarrut2022] and gammart.
+
+# Resolution: the PI's questions {#sec-resolution}
+
+## The classic formula, worked at the centre {#sec-classic}
+
+<!-- source: 2026-10-28_analytic_resolution/analytic_baseline.qmd §2–3; _tables/centre.md, centre_mix.md; derivation/square_pinhole.md §5.2 -->
+
+For one module seeing a point at distance $b$, with the mean interaction depth $f$ behind the pinhole, Accorsi and Metzler [@accorsi2004] (see also [@vanaudenhaege2015]) give
+
+$$
+R_g = d_{re}\,\frac{b+f}{f},\qquad R_i = p\,\frac{b}{f},\qquad R = \sqrt{R_g^2 + R_i^2}.
+$$ {#eq-res}
+
+$R_g$ is the aperture term and $R_i$ the detector pixel projected back to the object; both are FWHMs at the object (@fig-terms-schematic). For the square knife edge the resolution-effective width is
+
+$$
+d_{re} = w + \frac{\ln 2}{\mu}\tan\frac{\alpha}{2} = w + 0.191\ \text{mm}.
+$$ {#eq-dre}
+
+This is Accorsi–Metzler eq. 29 [@accorsi2004]; our derivation (@sec-square) shows that for a square it is exactly the FWHM along a side at normal incidence. The sensitivity per emitted photon is
+
+$$
+g = \frac{A_{eff}\cos^3\theta}{4\pi b^2} = \frac{A_{eff}\cos\theta}{4\pi r^2},
+$$ {#eq-sens}
+
+with $A_{eff}$ the penetration-effective area of the square (@sec-square).
+
+![The two terms of @eq-res (not to scale). Left: a detector pixel of width p, projected back through the pinhole centre, covers $R_i = p\,b/f$ at the object. Right: the points of the object that reach one detector point through an aperture of width d span $R_g = d\,(b+f)/f$. For module C at the centre: $R_i$ = 11.08 mm and $R_g$ = 9.20 mm.](img/schematic_pinhole_terms.png){#fig-terms-schematic width=72%}
+
+*Worked example, module C at the centre.* At the centre $b = 149.6$ mm, so $(b+f)/f = 176.6/27 = 6.541$ and the minification is $f/b = 0.18$.
+
+- Aperture term: $R_g = 1.406 \times 6.541 = 9.20$ mm.
+- Detector term: $R_i = 2 \times 149.6/27 = 11.08$ mm with parallel pixels, and $2 \times 149.6/35 = 8.55$ mm with converging pixels.
+- Quadrature total: $R = \sqrt{9.20^2 + 11.08^2} = 14.40$ mm (parallel), 12.56 mm (converging).
+- Sensitivity: $g = 8.169 \times 10^{-6}$.
+
+| aperture | $w$ | $d_{re}$ (pinhole plane) | $R_g$ (at object) | $R_i$ parallel / converging | $R$, parallel | $R$, converging | relative sensitivity $g/g_A$ |
+|:---|:---|:---|:---|:---|:---|:---|:---|
+| A | 0.556 | 0.747 | 4.89 | 11.08 / 8.55 | 12.11 | 9.85 | 1.00 |
+| B | 0.797 | 0.988 | 6.46 | 11.08 / 8.55 | 12.83 | 10.72 | 1.60 |
+| C | 1.215 | 1.406 | 9.20 | 11.08 / 8.55 | 14.40 | 12.56 | 2.99 |
+| D | 2.007 | 2.198 | 14.38 | 11.08 / 8.55 | 18.15 | 16.73 | 6.89 |
+
+: One module of each size at the helmet centre (mm), where every module sees the point at $b$ = 149.6 mm. $d_{re}$ is the effective opening width in the pinhole plane; $R_g = d_{re}(b+f)/f$ is its blur referred to the object (× 6.54 here), $R_i$ the detector pixel referred to the object, and $R = \sqrt{R_g^2 + R_i^2}$. Relative sensitivity is explained below the table. Over the current 73-module mix the best module is 12.1 mm and the count-weighted combination is 15.5 mm (parallel pixels, with penetration). {#tbl-centre}
+
+**Reading the table: resolution against sensitivity.** The last column is how many photons a module with that pinhole detects, relative to aperture A, for the same source position and scan time. It is the ratio of the penetration-effective areas, $g/g_A = A_{eff}/A_{eff,A} = (w_s/w_{s,A})^2$ with $w_s^2 = w^2 + 2wt/\mu + 2t^2/\mu^2$ (@eq-aeff at normal incidence; $w_s$ = 0.876, 1.107, 1.516, 2.299 mm for A–D). Two points follow:
+
+- **Penetration compresses the sensitivity range.** The opening areas alone would give $w^2/w_A^2$ = 1, 2.05, 4.78 and 13.0. Penetration through the knife edge adds an effective area $2wt/\mu + 2t^2/\mu^2$ that grows only slowly with $w$ (0.46 mm² for A, 1.26 mm² for D, against openings of 0.31 and 4.03 mm²): it multiplies the effective area of A by 2.5 but that of D by only 1.3. So D collects 6.9×, not 13×, the counts of A.
+- **The trade-off per module.** Going from A to D multiplies the counts by 6.9 and the aperture blur $R_g$ by 2.9 (4.9 → 14.4 mm). But the full module resolution $R$ changes only by 1.5× (12.1 → 18.2 mm, parallel pixels), because the detector term $R_i$ = 11.1 mm is common to all sizes. A smaller pinhole therefore buys little resolution and costs many counts; this is the analytic root of the aperture result in @sec-apertures.
+
+The count-weighted combination is $R_{comb} = (\sum_k g_k R_k^{-2} / \sum_k g_k)^{-1/2}$, because the information per count of a Gaussian blur scales as $R^{-2}$. The detector term dominates: shrinking the pinhole from C to A sharpens a module only 1.2–1.3×, at one third of the counts (@fig-terms in the appendix).
+
+## "About 7 mm" and "2–2.5×": the estimates {#sec-rule}
+
+<!-- source: analytic_baseline.qmd §3–5 (_tables/centre.md, centre_mix.md, points.md; analytic.json); reconstructed ~6 mm from the 28 Oct update §6; box ⊗ box and RMS values from derivation/square_pinhole.md §5.3 -->
+
+**"About 7 mm"** is the aperture term alone: 7.95 mm for C at the centre without penetration, and 7.0 mm for C at $b$ = 128 mm. It excludes the detector. With the detector term included, a single module reaches about 7 mm only off-centre: the best module is 7.1 mm at 60 mm from the axis, and 6.6 mm at 35 mm in the uniform slice.
+
+**"2–2.5×"** depends on which analytic number is compared with the reconstruction. @tbl-ratio lists the candidates against the reconstructed resolution of about 6 mm (Derenzo: 6 mm rods separate, 5 mm partly; cold-sphere edges 5.3–6.7 mm; GATE data with the parallel-pixel GATE matrix, 28 October update).
+
+| analytic estimate (classic formula, 2 mm parallel pixels unless stated) | position | analytic (mm) | ratio to ≈ 6 mm |
+|:---|:---|:---|:---|
+| count-weighted over all 73 modules, quadrature | centre | 15.5 | 2.6 |
+| count-weighted over all 73 modules, quadrature | ρ = 0 / 30 / 60 mm | 14.8 / 14.1 / 12.1 | 2.5 / 2.4 / 2.0 |
+| module C, quadrature $\sqrt{R_g^2 + R_i^2}$ | centre | 14.4 | 2.4 |
+| best single module, quadrature | centre | 12.1 | 2.0 |
+| best single module, quadrature | ρ = 0 / 30 / 60 mm | 10.1 / 9.0 / 7.1 | 1.7 / 1.5 / 1.2 |
+| module C, true box ⊗ box FWHM (@fig-box) | centre | 11.1 | 1.9 |
+| module C, RMS-equivalent Gaussian | centre | 10.5 | 1.8 |
+| aperture term alone, C, nominal width | centre | 7.95 | 1.3 |
+| converging pixels: count-weighted / best module | centre | 13.5 / 9.8 | pending |
+
+: Analytic resolution estimates against the reconstructed ≈ 6 mm. "Centre" is the helmet centre ($b$ = 149.6 mm for every module); the ρ rows are on the slice z = 25.5 mm, whose ρ = 0 point is closer to the top modules. Converging-pixel ratios await phantom reconstructions with the converging matrix. {#tbl-ratio tbl-colwidths="[46,18,18,18]"}
+
+The factor ranges from 1.2 to 2.6. "2–2.5×" is reproduced only by the count-weighted quadrature value within 60 mm of the centre, or by a single module C at the centre. Two things inflate it:
+
+- the count weighting, because the large apertures carry most of the counts;
+- the quadrature convention: both blurs are close to boxes, and two boxes convolve to a trapezoid whose FWHM is the larger width (@fig-box). The quadrature gives 14.4 mm for module C, the true profile 11.1 mm.
+
+Against the true profile the gain at the centre is about 1.9×. The convention should be named whenever the factor is quoted.
+
+![Box ⊗ box against the quadrature convention for module C at the centre. The trapezoid's half maximum sits at the larger half-width (11.1 mm); the quadrature gives 14.4 mm. Both FWHMs are computed in `make_figures.py`.](img/schematic_box_vs_gauss.png){#fig-box width=58%}
+
+**Phase 0: the formulas against gammart (FINAL).** The formulas were checked against gammart module by module, at the centre and five off-centre points, for the current mix and uniform A–D (@fig-phase0 in the appendix):
+
+- The sensitivity ratio to @eq-sens is 0.975–0.989 on average per point. Up to 37° it is flat in θ and $b$: the 1st–99th percentile of 1916 module-point pairs is 0.971–1.000. At 38–41° (128 pairs) it falls to as low as 0.863.
+- The aperture spot width is within 1 % at the centre.
+- The effective $f$ is 27.0–27.4 mm.
+- The binned quadrature $R$ is 15–30 % high at the centre, which is the box caveat. Off-centre with parallel pixels the formula is too low, because it has no parallax term; with converging pixels it agrees within 0–15 %.
+
+**The square pinhole.** Square-aperture formulas are derived and checked against a ray trace of the GATE collimator in @sec-square. The only change to the classic set is the corrected sensitivity obliquity, @eq-sens.
+
+## What limits the resolution: the 2 mm detector pixel {#sec-limit}
+
+<!-- source: analytic.py formulas (d_re = w + ln2/mu, R_g = d_re (b+f)/f, R_i = p b/f with p b/f = 2b/27 parallel, 2b/35 converging); b = 149.6 mm (centre), 86 and 53 mm (nearest module at rho = 60 and 95 mm, analytic.json b_min) -->
+
+With the minifying geometry unchanged, the 2 mm detector pixel is the primary cause of the coarse projection resolution for most of the system. The detector term is the pixel projected back to the object, $R_i = p\,b/f$, so it is the product of the pixel size and the minification $b/f$ (5.5 at the centre). @tbl-limit compares it with the aperture term at three distances.
+
+| aperture (modules in the current mix) | $R_g$ at $b$ = 150 / 86 / 53 mm | limiting term, 2 mm parallel pixels | limiting term, converging pixels |
+|:---|:---|:---|:---|
+| A (19) | 4.9 / 3.1 / 2.2 | detector (84 / 81 / 76 %) | detector (75 / 71 / 65 %) |
+| B (18) | 6.5 / 4.1 / 2.9 | detector (75 / 70 / 64 %) | detector (64 / 59 / 52 %) |
+| C (18) | 9.2 / 5.9 / 4.2 | detector (59 / 54 / 47 %) | aperture (46 / 41 / 35 %) |
+| D (18) | 14.4 / 9.2 / 6.5 | aperture (37 / 32 / 27 %) | aperture (26 / 22 / 18 %) |
+| detector term $R_i$ | | 11.1 / 6.4 / 3.9 | 8.6 / 4.9 / 3.0 |
+
+: Aperture term $R_g$ against the detector term $R_i$ (mm, FWHM at the object). The percentage is the detector's share of $R^2 = R_g^2 + R_i^2$ at $b$ = 150 / 86 / 53 mm (the helmet centre, and the nearest module to points 60 and 95 mm off-axis). {#tbl-limit tbl-colwidths="[24,26,25,25]"}
+
+- **With 2 mm parallel pixels the detector term is the largest blur for apertures A–C (55 of 73 modules) at every distance**, except C at 53 mm, where the two are equal. Only D is aperture-limited.
+- **Pixel size needed.** At the centre a detector term equal to the reconstructed ≈ 6 mm needs pixels of about 1.1 mm; one equal to aperture C's term needs about 1.7 mm. This agrees with @goorden2009: above about 0.2 mm intrinsic resolution the optimal geometry magnifies (@sec-apertures).
+- **Converging pixels** lower the detector term by 23 % (factor 27/35) and remove parallax, which moves C to aperture-limited and leaves A and B detector-limited.
+- **Ideal decoding assumed.** The detector term here is the geometric pixel width only: each event is assigned to the pixel that contains its centroid. The laser-written LIOB walls are not perfect optical barriers; on the cardiac prototype about a third of events are decoded into a neighbouring pixel (more at the edges). That widens exactly this dominant term and is not yet in the brain simulations (open issue, @sec-open).
+- **Consequence for the aperture choice.** Because the detector term dominates for the small apertures, shrinking the pinhole buys little resolution at a large cost in counts (@tbl-centre). The levers for resolution in this geometry are the detector (finer or converging pixels) or less minification, not smaller pinholes.
+
+## The withdrawn point-response number
+
+<!-- source: analytic_baseline.qmd "The point response, and why it is not used"; lir/lir.md -->
+
+The earlier "system-only" point response of 6.4 mm at the centre came from the ideal local impulse response (LIR), $H^{\mathsf T}(HH^{\mathsf T} + \lambda I)^{-1}He_j$, with $\lambda = 10^{-3}$ times the largest eigenvalue of $HH^{\mathsf T}$. It was computed with the GATE matrix.
+
+The GATE matrix entries are Monte Carlo counts of 1–6. In $He_j$ and in the Gram matrix each column shares its own noise, which gives a narrow spike on a far-field tail. Noiseless gammart matrices give wider responses for the same system (@tbl-lir; profiles in @fig-lir, appendix):
+
+| case | ρ = 0 | 30 | 60 | 80 | 95 mm |
+|:---|:---|:---|:---|:---|:---|
+| GATE matrix (current mix, parallel), withdrawn | 6.4 | 5.8 | 5.8 | 5.9 | 5.0 |
+| gammart, current mix, parallel | 10.9 | 11.4 | 9.3 | 8.4 | 6.7 |
+| gammart, current mix, converging | 9.8 | 9.6 | 7.9 | 6.5 | 5.5 |
+| gammart, uniform C, converging | 9.2 | 9.1 | 7.7 | 6.2 | 5.3 |
+
+: LIR half-max width (mm), mean of 12 directions. {#tbl-lir tbl-colwidths="[40,12,12,12,12,12]"}
+
+Poisson-resampling the gammart matrix to GATE-like counts reproduces the narrowing, to 4.7–8.0 mm. The LIR also depends on the arbitrary $\lambda$, so it is used **only to compare designs**. On that basis, converging pixels sharpen it by 1–2 mm, and uniform C is as sharp as or sharper than the current mix.
+
+# Aperture design: uniform vs mixed {#sec-apertures}
+
+## Published evidence: the Meng group and others
+
+<!-- source: lit_notes_meng_sabet_resolution.md (Zannoni 2021 [full]; Meng 2004, 2009 [full]; Lai 2018 [full]; Mandot 2025 [abstract]; Goorden 2009 [full, 30 Oct]; DB-SPECT [abstract]); review/review_cite.md -->
+
+**Zannoni, Yang and Meng 2021** [@zannoni2021] (full text) is the closest published analogue: a HelmetSPECT with 502 modules, 250 µm pixels and 1:12 minification. It compares uniform 502 × 1 mm loftholes with a mix of 168 × 0.5 mm, 167 × 1.5 mm and 167 × 3 mm, interleaved in every ring. The mix was chosen for the same reason as our hypothesis (§II-B.3):
+
+> "The specific combination of the three lofthole diameters is chosen to allow the system to sample the object at high spatial frequencies, while maintaining a relatively high sensitivity."
+
+| result (Zannoni 2021) | uniform 1 mm | mixed 0.5/1.5/3 mm |
+|:---|:---|:---|
+| Fisher-information image FWHM at the centre (Fig. 5) | 20 mm | 26 mm |
+| smallest hot rods resolved, S/B 20:1 (Fig. 8) | 4 mm | 6 mm |
+| 4 mm rods, S/B 20:1: CNR / CRC | 14.7 / 35.5 % | 22.5 / 36.2 % |
+
+: Transcribed from the paper. The CNR/CRC values are read from the bar-chart labels of Fig. 8C–D (not stated in the text). {#tbl-zannoni tbl-colwidths="[56,22,22]"}
+
+At equal scan time the mix has the higher sensitivity and CNR and a similar CRC on the 4 mm rods (@tbl-zannoni), but it resolves coarser rods. Their explanation for the axial (Defrise-phantom) result, where the mix was also worst (§III-D.1):
+
+> "the angular sampling provided by each type of lofthole is sparser than the case of 1-mm D lofthole collimator. Additionally, only the two smallest loftholes could allow to resolve the disk features at the center of the FOV. The reduction of the number of loftholes able to visualize the feature and the sparser angular sampling led to the degraded resolution in the central area of the FOV, so that the disk features are not well-resolved."
+
+And their conclusion (§IV): "The combination of 3 types of loftholes having different diameters improves the system sensitivity but offers the lowest spatial resolution in this study." On the detector (§II-C): "the large minification geometry makes the DOI capability indispensable to achieve a high spatial resolution needed in brain imaging applications". That is the same point as our detector-term floor, which converging pixels address.
+
+**Other evidence.**
+
+- **Meng & Clinthorne** [@meng2004] find that the best pinhole size follows the target resolution: "a larger pinhole diameter results in lower variance if a worse spatial resolution is acceptable". They did not test mixes.
+- **Meng & Li** [@meng2009] found that finer detector pixels (1 → 0.5 mm) gave a "significant improvement".
+- **MRC-SPECT-II** [@lai2018], from the same group, combines 300 µm pinholes with 0.1 mm detector resolution. The authors state that "the ultra-high 3D resolution of the detector enabled MRC-SPECT-II to use a demagnification design without sacrificing resolution".
+- **The group's dual-FOV brain system** [@mandot2025] (abstract only) uses 2 mm pinholes in its whole-brain mode and seeks resolution through hardware sub-pixel and angular shifts, not mixed pinhole sizes.
+- **Goorden, Rentmeester and Beekman** [@goorden2009] (read in full) show analytically for full-ring multi-pinhole brain SPECT that for detectors with intrinsic resolution above about 0.2 mm "the optimal detector radius is large, resulting in a magnified object projection onto the detector" (§4); only detectors finer than 0.2 mm favour de-magnified projections (abstract). Our 2 mm pixels are ten times above that crossover.
+
+**DB-SPECT** [@feng2022db] (abstract only). The wording below is as recorded in our literature notes and has not been re-verified against IEEE Xplore. The design has 118 collimators in four groups from 0.5 to 2.0 mm. The abstract reports high sensitivity from the large holes and says the small holes "contributed to recovered resolution". It compares with a dual-head camera, not with a uniform aperture at equal sensitivity, so it does not address uniform versus mixed.
+
+## Scorecard and placement (PROVISIONAL)
+
+<!-- source: 2026-10-28_brain_update/update.md §7.3 scorecard table; PLAN "WP2b map-to-map variation" (Conclusion, between-map SD); out/wp2b/scorecard/map_variation.json -->
+
+Eight designs were reconstructed with their exact matrices:
+
+- **Noise:** 100 noise realisations, compared at matched noise (Derenzo rod-peak CoV 2.5 %); OSEM 8 subsets.
+- **Like-for-like, not absolute:** the same matrix made the data and the reconstruction; there was no attenuation or scatter; parallel pixels were used.
+
+| design | sensitivity | V/P 6 mm ↓ | V/P 7 mm ↓ | V/P 8 mm ↓ | XCAT CRC ↑ | NRMSE ↓ |
+|:---|:---|:---|:---|:---|:---|:---|
+| all A (0.556 mm) | 0.31× | 1.12 | 0.97 | 0.72 | 0.769 | 0.468 |
+| all B (0.797 mm) | 0.50× | 1.09 | 0.88 | 0.56 | 0.776 | 0.455 |
+| **all C (1.215 mm)** | 0.96× | 1.06 | 0.81 | **0.41** | 0.785 | 0.442 |
+| all D (2.007 mm) | 2.25× | 1.07 | 0.87 | 0.44 | 0.785 | 0.436 |
+| current (index mod 4) | 1.00× | 1.08 | 0.87 | 0.48 | 0.776 | 0.448 |
+| rings of B/C/D | 1.21× | 1.05 | 0.85 | 0.43 | 0.782 | 0.443 |
+| best assignment (C, one B) | 0.96× | 1.05 | 0.82 | 0.43 | 0.785 | 0.442 |
+| continuous widths (surrogate optimum) | 0.95× | 1.06 | 0.79 | 0.38 | 0.785 | 0.443 |
+
+: Reconstruction scorecard (28 Oct), all eight designs. Realisation error of a V/P about ±0.02. For mixed maps, the between-map SD of the 8 mm V/P is 0.039, so the 0.07 gap between uniform C and the current mix is 1.8 SD. {#tbl-scorecard tbl-colwidths="[28,12,10,10,10,15,15]"}
+
+No mixed design beats uniform C. The best assignment (C with one B module) equals uniform C within noise and is slightly better on 6 mm V/P, as is "rings of B/C/D". Continuous per-module widths gain a little more on 7 and 8 mm (0.79, 0.38). The V/P-against-noise curves are in @fig-scorecard (appendix).
+
+
+
+**Placement (WP2b).** With a fixed inventory, placement is second-order (@fig-wp2b, appendix):
+
+- The 8 mm V/P varies by about 0.04 (one SD) between random maps.
+- Annealed maps give a small but repeatable gain: V/P 7 mm −0.035, CRC +0.4 %, NRMSE −0.2 %.
+- Stratified maps give no gain.
+- Index mod 4 behaves like an ordinary random map.
+- Uniform 1.215 mm stays ahead of all 12 mixed maps on every metric; the best mixed map reaches 0.438 on the 8 mm rods vs 0.414.
+
+Caveats: parallel pixels, no scatter, one XCAT background and one Derenzo orientation. The study is to be re-checked on the converging detector.
+
+
+
+## Why one size wins: information adds per frequency
+
+Fisher information adds over modules. At spatial frequency $\nu$ a module contributes roughly $g\,\mathrm{MTF}(\nu)^2$. Each frequency band therefore has a best size, and a mix is a weighted sum of the pure designs. **A mix cannot beat the best pure design in any band** (@fig-info).
+
+The simple analytic models do favour small pinholes at the finest detail. The exact-matrix proxy at realistic counts ranks them differently: mean directional resolution is 9.48 / 8.16 / 7.18 / 6.75 mm for uniform A–D and 7.42 mm for the current mix.
+
+![Information relative to the best pure design at ρ = 60 mm (converging pixels), for two analytic response models only (Gaussian blur; aperture box ⊗ pixel box); vertical lines: the fundamentals of the 8, 6, 5 and 4 mm Derenzo sectors. Look at the dashed black curve: the current mix is never on top.](img/information_vs_frequency.png){#fig-info width=92%}
+
+# Detector: converging LIOB pixels {#sec-detector}
+
+## One module, GATE vs gammart (WP1, FINAL) {#sec-wp1}
+
+<!-- source: PLAN "WP1: single module"; out/wp1/wp1_results.json (read by scripts/make_figures.py; FN wp1_*) -->
+
+Laser-induced optical barriers (LIOB) are walls written into the CsI block by a laser [@sabet2012]. Here they define 25 × 25 pixels whose walls converge on the pinhole (@fig-converging). The converging-pixel CsI:Tl detector and its maximum-likelihood position decoding are described by Zhang et al. [@zhang2026]. The pitch is 1.43 mm at the entrance and 2.0 mm at the exit.
+
+A ray through the pinhole centre stays in one pixel at any depth. The aperture width and the Compton spread in the crystal still give the 1.8–1.9 mm spot. The same events can also be binned into parallel 2 mm pixels, which gives a reference detector.
+
+![One module in side view (geometry to scale). Left: converging pixels; the 30° ray through the pinhole centre stays in one pixel at every depth. Orange triangles: the edge strip, CsI outside the outermost wall, 7.1 mm wide at the entrance (walls at ±17.9 mm) and zero at the exit (±25 mm). Right: parallel 2 mm pixels; the same ray crosses three to four pixels as it goes deeper (parallax).](img/schematic_converging.png){#fig-converging width=86%}
+
+One module was simulated with its real knife edge and a point-source cone in vacuum. Both codes' hits went through the same readout code: block sum, energy-weighted centroid, energy blur, window. Window counts agree to 0.9991–1.0035 over the 10 cases, and the per-pixel pull rms is 0.95–1.19 (@fig-wp1).
+
+| incidence | 0° | 15° | 30° | 35° |
+|:---|:---|:---|:---|:---|
+| converging (mm) | 1.91 | 1.89 | 1.83 | 1.81 |
+| parallel 2 mm (mm) | 1.73 | 1.90 | 2.17 | 2.25 |
+
+: Radial spot FWHM at mid depth, aperture C. Converging pixels keep the width; the parallel-pixel spot widens by 30 % at 35°. {#tbl-wp1}
+
+![WP1. Left: radial spot FWHM against incidence angle (gammart filled, GATE open; the two codes overlap). Right: GATE/gammart in-window counts for all 10 cases. Look at the crossing at 15°: beyond it, converging pixels are sharper.](img/wp1_spot_window.png){#fig-wp1 width=94%}
+
+GATE with fluorescence loses 1.7–2.0 % of window counts at 0–30° and 16 % at 45°, where the spot reaches the crystal side and K x-rays escape. gammart has no fluorescence, so that is about a 2 % window effect over the useful field.
+
+## Measured data: converging-pixel modelling fixes the reconstruction scale (FINAL) {#sec-scale}
+
+<!-- source: model_LIOB/docs/roadmap.md (2026-10-28 entries "First MLEM recon" and "Mar23 triple line ... side lengths"); model_LIOB/out/recon/Mar23_xi_{gate,parallel_1mm,converging_1mm}.npz; scripts/fig_triple_scale.py; numbers in img/figure_numbers.json "triple_scale" -->
+
+Converging-pixel modelling was also tested on **measured** data from the lab's cardiac prototype, which uses the same laser-written converging-pixel CsI:Tl modules (20 heads, measured triple-line phantom with true side lengths 75 / 75 / 106.1 mm; X. Zhang's position decoding [@zhang2026]). The data were reconstructed (MLEM, 50 iterations, 1 mm voxels) with three system matrices that differ only in how the detector pixels are modelled (@fig-scale).
+
+![Measured triple-line data from the cardiac converging-pixel prototype, reconstructed with three system matrices (MLEM 50 iterations, axial sum over 40 mm, square-root grey scale). Orange: triangle through the three reconstructed lines; blue dashed: the same triangle at its true size (same centre and orientation). The parallel-pixel matrices (left, centre) stretch the image by 13–14 %; the converging-pixel matrix (right) puts the lines at the true positions. The GATE-matrix line widths are not comparable (Monte Carlo noise in that matrix narrows them).](img/triple_scale.png){#fig-scale width=100%}
+
+- **With parallel-pixel matrices the image is 13–14 % too large.** GATE: sides 84.2 / 84.7 / 120.3 mm (×1.129); gammart, parallel pixels: 85.1 / 85.6 / 121.6 mm (×1.141). The factor matches the footprint stretch between converging and parallel pixel grids predicted by gammart (1.135 for one head) and fitted to the measured line positions (1.110).
+- **With the converging-pixel matrix the scale is right:** sides 73.0 / 74.3 / 104.5 mm (×0.984, within 1–3 % per side), and the lines are sharper (FWHM 3.2–5.8 mm against 4.3–6.8 mm for gammart parallel pixels).
+- Crystal thickness is not the cause: a parallel-pixel matrix with an 8.05 mm crystal gives the same sides as 10 mm.
+
+So modelling the converging pixels is necessary for geometrically correct images on real data, not only a resolution refinement. This work was done with the LIOB study (decoding, measured data) on gammart system matrices.
+
+
+
+## The edge strip (WP1 and WP3; convention PROPOSED) {#sec-strip}
+
+<!-- source: PLAN "Finding the plan did not anticipate", "Edge triangle, full system", WP3 "Edge triangle", "Open issues" (3); out/wp3/wp3_results.json -->
+
+The converging array covers incidence up to atan(17.9/25) = 35.6° at the entrance. Outside the outermost wall is the strip. For a single-module beam it holds 27 % of the window events at 35° and 91 % at 45°. In the full system the fraction depends on the object:
+
+| source | edge strip, % of window events | worst module |
+|:---|:---|:---|
+| centre point / off-centre point / 80 mm water sphere (gammart) | 0.12 / 0.13 / 0.16 | 0.54 % |
+| Derenzo (WP3) | 0.4 | 0.8 % |
+| small Jaszczak (WP3) | 6.2 | 9.7 % |
+| triple line in its water tank (WP3) | 7.5 | 22 % |
+
+: Edge-strip share. WP3 rows: GATE and gammart agree (Derenzo 0.42 / 0.42 %, Jaszczak 6.15 / 6.22 %, triple line 7.46 / 7.53 %, GATE fluorescence on). The point-source rows are gammart only. {#tbl-strip tbl-colwidths="[50,30,20]"}
+
+Extended objects are seen at large angles by the upper and lower rings, which is where the strip collects events.
+
+**Proposed convention for paper 2 (decision 2).** The strip becomes its own element, cell 625 of each module, in both the data and the matrix. Dropping it instead ("lost") changes GATE/gammart by less than 0.1 %. As a loss, however, it would be 6–7.5 % of the window counts for two of the three phantoms. The plan lists the treatment as an open design decision.
+
+**Comparison with the cardiac system.** The cardiac geometry needs one converging design per collimator length, 40 in all. The brain helmet needs one for all 73 modules, because the pinhole is 25 mm in front of the entrance face in every module. The WP3 check of the outermost pixel ring shows no excess (z rms 0.98–1.14 with fluorescence off), so there is no side leak of the kind seen in the cardiac geometry.
+
+# The simulation chain is validated {#sec-chain}
+
+## WP0: the spectrum mismatch explained (FINAL)
+
+<!-- source: PLAN "WP0 results (2026-10-28)" table; out/wp0/bands_t2.json; figure out/wp0/spectra_t2.png -->
+
+In the full-system point-source run GATE had 1.6 % more singles than gammart. The excess sat at 60–100 keV; the air-world run also had a 12 % deficit at 34–50 keV (@fig-wp0). Two causes were found:
+
+- **Room air.** GATE's default world is a 3 m cube of air. Photons leaving through the openings backscatter in it and return at about 90 keV. The 60–90 keV ratio is 3.76 ± 0.10 in air and 1.39 ± 0.06 in vacuum.
+- **Doppler broadening.** option4 and Livermore model the bound-electron momentum, which smears single scatter below its 90.4 keV kinematic edge. gammart does not. With Standard physics (no Doppler) the ratio is 0.96 ± 0.05.
+
+The photopeak window agrees within 1 % for all four GATE variants. **Adopted:** vacuum world and option4 physics in GATE. The missing Doppler term in gammart is a known limitation below the window.
+
+![WP0 (copied from out/wp0/spectra_t2.png). Top: singles spectra of a 140 keV point source, gammart and four GATE variants; the window is shaded. Bottom: GATE/gammart in 4 keV bins. Look at 60–100 keV: the air-world excess disappears in vacuum; the smaller excess left in vacuum (ratio 1.39) disappears without Doppler (Standard), where the valley is deepest, as in gammart.](img/wp0_spectra.png){#fig-wp0 width=80%}
+
+## WP3: full-system GATE anchor on three phantoms (FINAL)
+
+<!-- source: PLAN "WP3 results (2026-10-29)" incl. "Exposure actually simulated"; out/wp3/wp3_results.json, wp3_recon_results.json; FN wp3_photopeak_band_off -->
+
+**Setup.**
+
+- **Phantoms:** the small Jaszczak, a Derenzo and a triple line, all in water.
+- **Settings:** the annealed aperture map, the CSG shield, vacuum and option4.
+- **Exposure:** the nominal 15 mCi / 15 min was simulated only partly or with excess. With fluorescence on: Jaszczak 51 %, Derenzo 121 %, triple line 96 %. With fluorescence off: 14–39 %.
+- **Processing:** GATE stored singles in the module frame. Blur, window and binning were applied offline with the same code for both simulators.
+
+| quantity | Jaszczak | Derenzo | triple line |
+|:---|:---|:---|:---|
+| GATE/gammart, window per photon, fluorescence off | 1.0022 | 1.0027 | 1.0032 |
+| same, fluorescence on (on/off) | 0.9822 (0.9801) | 0.9832 (0.9806) | 0.9829 (0.9798) |
+| photopeak band 126–154 keV of the spectrum, fluorescence off | 1.0023 | 1.0026 | 1.0032 |
+| counts per module, pull rms (fluorescence off) | 1.01 | 0.97 | 1.20 |
+| pixel maps, pull rms, converging (fluorescence off) | 0.99 | 0.98 | 0.99 |
+
+: WP3 checkpoint numbers (statistical errors 0.02–0.03 %). {#tbl-wp3 tbl-colwidths="[46,18,18,18]"}
+
+- **Window.** Fluorescence costs a uniform 2.0 %, the WP1 single-module value. The remaining GATE excess of 0.2–0.3 % has the same sign in all three phantoms and is not understood.
+- **Spectra.** With a phantom present, phantom scatter fills the WP0 Doppler valley.
+- **Reconstruction.** The converging matrix was used without corrections on purpose. Derenzo V/P agrees within 0.003 for 3–8 mm rods, and triple-line FWHMs within 0.08 mm.
+- **Open.** (i) The 0.2–0.3 % excess. (ii) The Jaszczak 25.4 mm sphere with fluorescence on reads 0.831 against 0.864 for gammart, while fluorescence-off GATE agrees (0.870); this is probably the fluorescence background and needs more fluorescence-off statistics. (iii) The WP3 "uniformity" metric of the Jaszczak used z −5..45 mm, which contains the cold rods; it is invalid and was replaced in WP4.
+
+The compute cost of the campaign is in @sec-compute.
+
+![WP3 checkpoint. Left: in-window counts per photon, GATE/gammart, fluorescence off (filled) and on (open); dotted line at 0.98. Right: edge-strip share, GATE and gammart, with fluorescence off. Look at the left panel: with fluorescence off all three phantoms sit 0.2–0.3 % above 1.](img/wp3_checkpoint.png){#fig-wp3 width=84%}
+
+# Reconstruction with physics corrections (WP4) {#sec-wp4}
+
+## The forward model
+
+<!-- source: PLAN "WP4 results" (corrected 2026-10-30); pytorch-optix/examples/wp4_recon.py docstring; wp4_common.py; PLAN WP2 kernel paragraph (pooling) -->
+
+Row $i$ is one detector element: module $m$ and converging cell $c$, with the edge strip as cell 625. Its expected counts are
+
+$$
+\bar y_i = \big[K^{\mathsf T}\,(\Gamma \circ H)\,x\big]_i + s_i ,
+$$ {#eq-model}
+
+where
+
+- $x$ is the activity image, 144³ voxels of 2 mm, with $\rho \le 142$ mm;
+- $H$ is the first-interaction converging matrix, 73 × 626 rows, with nnz 4.4 × 10⁸;
+- $\Gamma$ holds the attenuation factor of each (module, voxel) pair, ray-traced through the phantom; its median ratio to the exact analytic path is 1.0005–1.0008;
+- $K$ is the Compton-centroid kernel $T[f, c]$: the probability that a first interaction in cell $f$ gives a window event in cell $c$. It is pooled over all modules of one aperture size and over the 8 symmetries of the square;
+- $s_i$ is the additive scatter estimate (@eq-tew).
+
+The reconstruction is OSEM with 8 subsets of modules [@hudson1994] (@fig-model).
+
+![The forward model of @eq-model as implemented in `wp4_recon.py`. Data and model are produced independently: the data come from GATE or the gammart Monte Carlo, the model from the deterministic matrix.](img/schematic_forward_model.png){#fig-model width=100%}
+
+The scatter term is the TEW estimate [@ogawa1991] from each data set's own side windows, smoothed within each module (Gaussian, σ = 2 cells):
+
+$$
+s_i = \Big(\frac{N_{l,i}}{\Delta E_l} + \frac{N_{u,i}}{\Delta E_u}\Big)\,\frac{\Delta E_m}{2} ,
+$$ {#eq-tew}
+
+where $N_{l,i}$ and $N_{u,i}$ are the counts in the lower (120.4–126 keV) and upper (154–159.6 keV) windows. The window widths are $\Delta E_l = \Delta E_u = 5.6$ keV and $\Delta E_m = 28$ keV. *Worked number:* with these widths $s_i = 2.5\,(N_{l,i} + N_{u,i})$.
+
+<!-- source: pytorch-optix/examples/wp4_common.py (WINDOWS, tew) -->
+
+## Scatter composition from the truth Monte Carlo
+
+<!-- source: out/wp4/truth/<ph>.npz; PLAN WP4 "Inputs"; FN truth_windows -->
+
+A gammart run with 2 × 10¹⁰ photons per phantom tags every window event by class (@tbl-composition, @fig-scatter).
+
+| phantom | primary | phantom-scattered | pre-crystal scattered |
+|:---|:---|:---|:---|
+| Jaszczak | 76.3 % | 22.4 % | 1.3 % |
+| Derenzo | 69.2 % | 29.4 % | 1.4 % |
+| triple line | 71.6 % | 27.1 % | 1.3 % |
+
+: Main-window (126–154 keV) composition from the truth Monte Carlo. {#tbl-composition}
+
+![Blurred energy spectra by class from the truth Monte Carlo, summed over modules (events with true energy ≥ 100 keV). Grey: main window; green: TEW side windows L and U. Look at the upper window: 89.8–92.5 % of its counts are primary photons, so it measures the photopeak tail, not scatter.](img/wp4_scatter_spectra.png){#fig-scatter width=96%}
+
+**What the TEW windows contain.** Scatter in the upper window equals only 0.54–0.56 % of the scatter in the main window. In the lower window, 13–18 % of the counts are primary-tail photons.
+
+- **Plain TEW** overestimates the total scatter by 5.4 % (Derenzo), 7.7 % (triple line) and 15.3 % (Jaszczak), against the truth Monte Carlo.
+- **TEW with the primary tail removed** underestimates it by 18 % (Derenzo). The side windows hold too little true scatter to predict what lies under the photopeak.
+
+So plain TEW works because the primary tail in its side windows compensates for scatter the windows do not sample, and it is kept. On primary-only data the same tail makes TEW over-subtract slightly (6 mm V/P 0.089 vs 0.108).
+
+## The kernel coverage bug and its fix
+
+<!-- source: PLAN WP4 "Compton-centroid kernel"; out/wp2/mc_sphere_water.npz, out/wp4/kernel_sphere140.npz via examples/wp2_kernel.kernel; FN kernel_empty_rows -->
+
+The first WP4 ladder used the WP2 kernel. That kernel was fitted from an 80 mm water sphere, which never illuminates the outer ring of the crystal: 104–156 of the 625 rows per aperture size were empty, so the K steps of that run were invalid. The kernel was refitted from a uniform r = 140 mm sphere in air (4 × 10¹⁰ photons, 5 min). Now every row has at least 3000 first interactions (@fig-kernel, appendix), and the window efficiency is 0.937.
+
+
+
+## The correction ladder {#sec-ladder}
+
+<!-- source: PLAN WP4 ladder table and bullets (corrected 2026-10-30); out/wp4/wp4_results.json (it128) -->
+
+**Data.** Each step was applied to GATE data with fluorescence on (59–114 M counts) and to gammart data (about 4–5 M counts).
+
+**Why the gammart images look worse: counts, not physics.** The gammart run here is the truth-tagged Monte Carlo of the scatter-composition section above: 2 × 10¹⁰ photons per phantom, about 4.6 % of the nominal exposure, so it has 12–28× fewer counts than the GATE data (GATE simulated 51–121 % of the nominal 4.4 × 10¹¹ photons). Its purpose is the scatter truth and the primary-only reference for *this* detector model. The WP3 GATE campaign (converging-pixel block readout, annealed map, vacuum world) stored only each single's position and energy, with no scatter label, so it has no primary-only subset. This is a limitation of that run, not of GATE: our earlier GATE phantom campaigns (parallel 2 mm pixel readout, the index-mod-4 map, used in the 28 October update) do carry primary and in-FOV labels (`in_fov_primary`), but they model a different detector and aperture map and cannot serve as the reference here. A GATE rerun of WP3 with scatter labels is possible (planned). For the reference, 2 × 10¹⁰ gammart photons are statistically sufficient. Unregularised OSEM amplifies noise with iterations, so at these counts the gammart images are noise-limited even after the 6 mm post-filter. This is not a physics difference between the codes:
+
+- at matched counts they agree: in WP3 each GATE quarter (15–28 M counts) gives the same metrics as gammart within the split SD (Derenzo V/P within 0.003; window counts within 0.2–0.3 %, @sec-chain);
+- comparisons *within* a gammart row (no correction, AC + K, + TEW, primary-only reference) share the same noise and remain valid;
+- the high-count GATE data reach the primary-only reference on 6 mm V/P (0.112 vs 0.108).
+
+A gammart truth run at GATE-like counts (about 2 × 10¹¹ photons per phantom, about 11 GPU-h for the three phantoms) would make the rows visually comparable; it is planned before WP5.
+
+**Reference.** AC + K on gammart's primary-only data: the model matched to primary-only data, within the pooled kernel and a deterministic matrix that agrees with MC to 0.4–1.1 % (3.5 % for the top module).
+
+**Noise.** Error bars are the split SD over 4 independent GATE quarters of 15–28 M counts each.
+
+| step | V/P 6 mm ↓ | V/P 7 mm ↓ | sphere 25.4 mm ↑ | rods 12.7 mm ↑ | cupping (1 = flat) |
+|:---|:---|:---|:---|:---|:---|
+| none | 0.192 | 0.052 | 0.987 | 0.947 | 0.857 |
+| AC | 0.227 | 0.087 | 0.896 | 0.767 | 1.009 |
+| AC + K | 0.213 | 0.075 | 0.921 | 0.813 | 1.011 |
+| AC + K + TEW | 0.145 | 0.037 | 0.999 | 0.923 | 0.993 |
+| AC + K + true scatter (oracle) | 0.145 | 0.038 | 0.997 | 0.920 | 0.976 |
+| primary-only reference | 0.108 | 0.029 | 0.995 | 0.898 | 0.991 |
+
+: Ladder on **gammart** data (about 4–5 M counts), 128 iterations. Derenzo V/P; Jaszczak contrast = 1 − (cold region mean / background mean); cupping = mean at ρ < 20 mm over the 30–50 mm annulus of the uniform section. {#tbl-ladder-gm tbl-colwidths="[30,13,13,15,15,14]"}
+
+| step | V/P 6 mm ↓ | V/P 7 mm ↓ | sphere 25.4 mm ↑ | rods 12.7 mm ↑ | cupping (1 = flat) |
+|:---|:---|:---|:---|:---|:---|
+| none | 0.158 | 0.048 | 0.957 | 0.963 | 0.875 |
+| AC | 0.194 | 0.083 | 0.801 | 0.830 | 1.010 |
+| AC + K | 0.181 | 0.072 | 0.836 | 0.866 | 1.006 |
+| AC + K + TEW | 0.112 | 0.033 | 0.991 | 0.961 | 1.032 |
+| AC + K + true scatter (oracle) | 0.114 | 0.034 | 0.986 | 0.957 | 1.006 |
+| split SD (TEW step) | 0.004 | 0.001 | 0.009 | 0.011 | 0.022 |
+
+: Ladder on **GATE** data (fluorescence on, 59–114 M counts), 128 iterations; same metrics and reference as @tbl-ladder-gm. {#tbl-ladder-gate tbl-colwidths="[30,13,13,15,15,14]"}
+
+![Ladder at 128 iterations: GATE (grey circles) and gammart (blue squares); error bars = split SD; dashed = primary-only reference. Green band: the scatter-corrected steps. Look at the last two columns: TEW and the oracle agree within the error bars, except GATE cupping (@tbl-ladder-gate).](img/wp4_ladder.png){#fig-ladder width=92%}
+
+What the ladder shows (@fig-ladder):
+
+1. **AC is needed for quantification.** Without it the uniform section cups (gammart 0.857, GATE 0.875); AC brings it to 1.01 (@fig-profile, appendix). Without scatter correction, however, AC lowers cold contrast, because it amplifies the scatter in the centre (25.4 mm sphere 0.987 → 0.896 for gammart).
+2. **The kernel helps a little.** 6 mm V/P goes from 0.227 to 0.213 (gammart), and the 12.7 mm rod contrast gains 0.04–0.05.
+3. **TEW matches the true-scatter oracle** within one split SD in every metric, for GATE and gammart, except GATE cupping: 1.032 vs 1.006, against a split SD of 0.022.
+4. **The remaining gap to the reference is mostly counting noise.** With GATE's 12–28× more counts, TEW reaches the reference on 6 mm V/P (0.112 vs 0.108) and the 25.4 mm sphere (0.991 vs 0.995).
+   - It does not reach it on 7 mm V/P (0.033 vs 0.029, about 4 split SD), the 12.7 mm rods (0.961 vs 0.898) or cupping (1.032 vs 0.991).
+   - For the triple line, the centre-line FWHM is 4.00 mm (GATE, TEW) against 3.90 mm (reference); the outer lines sit at the 2 mm grid floor.
+
+
+
+![Reconstructed slices at 64 iterations, OSEM 8 subsets, each panel after the same 3D Gaussian post-filter (6 mm FWHM; the metrics above are unfiltered). One grey scale for all panels, clipped at 0–1.3, nearest-neighbour display of the 2 mm voxels. Derenzo: mean over z = −29…29 mm (the V/P slab), normalised to the mean at the 8 mm rod centres (the background is cold). Triple line: the centre line, ±14 mm crop, mean over z = −19…19 mm, normalised to its own peak. The WP3 GATE run stored no scatter labels, so the primary-only reference exists only for gammart (earlier GATE campaigns with primary labels used a different detector and aperture map). The gammart rows have 12–28× fewer counts than the GATE rows (about 4–5 M vs 59–114 M), so they are noisier; this is counting statistics, not a code difference (see text). Look at the 5–6 mm sectors: TEW deepens the valleys in both rows.](img/wp4_slices_derenzo_triple.png){#fig-slices-dt width=80%}
+
+![Small Jaszczak at 64 iterations, same 6 mm post-filter and grey scale; each panel is normalised to the mean of the uniform background of its own slice (water more than 3 mm from any rod and 6 mm from any sphere). Rows 1–2: the rod insert at z = 29 mm (one 2 mm slice). Rows 3–4: the sphere plane, mean of z = −29 and −27 mm (sphere centres at −28 mm). Look at the GATE sphere rows: without correction the centre is darker than the rim (cupping); AC removes it, and TEW deepens the cold spheres. The gammart rows have 12–28× fewer counts than GATE (about 4–5 M vs 59–114 M) and stay noise-limited even after filtering; at matched counts GATE and gammart agree (see text). Compare columns within a row.](img/wp4_slices_jaszczak.png){#fig-slices-j width=80%}
+
+**Model-based scatter: PARKED.** A design exists that estimates scatter with the gammart Monte Carlo inside the iterations, at about 1.2 GPU-h per phantom per data set; Monte Carlo scatter estimates inside OSEM have been used before, e.g. for I-131 SPECT [@dewaraja2006]. Since TEW already matches the oracle here except for GATE cupping, the expected gain is small. Three speed-ups are recorded for later:
+
+- forced detection toward the pinholes, an expected gain of 10²–10³;
+- 5 × 5 superpixels, about 25× fewer photons for the same noise;
+- fewer outer passes, starting from the TEW image.
+
+It becomes relevant for a realistic head with scatter from outside the FOV. General background on scatter correction is in [@hutton2011].
+
+# Compute and allocation {#sec-compute}
+
+<!-- source: pytorch-optix/docs/access_supplement/progress_report.qmd (lines 39-40, 99-104); PLAN (WP1, WP2b, WP3 "Cost", WP4 "Open") -->
+
+**ACCESS supplement.** The request for <account> is 700,000 ACCESS credits on NCSA Delta GPU: about 10,500 GPU-h at 66.67 credits per GPU-h. Delta's A40 GPUs have the RT cores that gammart's ray tracing needs.
+
+**Expanse usage.** The progress report gives 509,166 of 700,000 SUs used (73 %, 28 October). The WP3 cost note in the plan, written after the campaign, reads the balance as 514.8 K used at the start and 514.4 K at the end.
+
+**This week's compute** (the constraint was the queue, not cost):
+
+| work | compute used |
+|:---|:---|
+| WP1 | about 43 SU on Expanse; about 1 GPU-h on the workstation (RTX 3080 Ti) |
+| WP2b | 0.51 + 1.65 GPU-h on ERIS (scorecards); 0.26 GPU-h on the workstation (tables) |
+| WP3 | 19 SU charged (benchmark). 11.1 K core-h on the uncharged Expanse preempt partition (10.97 K of it in preempted or requeued jobs), because the compute partition was full with start estimates 14–17 h away; 0.16 K core-h outside preempt. About 9 K core-h on OSPool; 6.2 GPU-h on the workstation |
+| WP4 | about 2.5 GPU-h on the workstation |
+
+: Compute used this week. {#tbl-compute tbl-colwidths="[10,90]"}
+
+# Open issues and next steps {#sec-open}
+
+| item | status | next step |
+|:---|:---|:---|
+| WP2: top module 3.5 % off in the deterministic converging matrix vs Monte Carlo | PROVISIONAL, unexplained | trace the module's geometry |
+| WP3: fluorescence-off GATE excess 0.2–0.3 % | open | none planned |
+| WP3: Jaszczak 25.4 mm sphere, fluorescence on 0.831 vs 0.864 | open | more fluorescence-off statistics |
+| WP4: TEW vs oracle on GATE cupping (1.032 vs 1.006) | open | to be investigated |
+| Edge-strip convention | PROPOSED | decision 2 |
+| Kernel angle dependence (pooled over modules) | not modelled | per-ring kernels if residuals demand |
+| WP2b re-check on the converging detector; WP2c energy window | PLANNED | after decisions 1–2 |
+| Resolution chain, Phases 1–3 | PLANNED | on approval (decision 5) |
+| WP5 performance (sensitivity map, resolution chain); WP6 comparison with other systems | PLANNED | after WP2b/WP2c |
+| LIOB decoding not modelled: all brain results assume ideal pixel identification (each event in the pixel of its centroid). Measured on the cardiac prototype: about 61–67 % correct overall, 82–85 % centre, 52–63 % edge ring, errors mostly to the neighbouring pixel. This widens the detector term, the dominant blur (@sec-limit), estimated 10–30 % (not computed) | OPEN | fold a per-pixel decoding confusion matrix for the brain pixel geometry (from the LIOB optical model) into data and model, after the Compton kernel; compare converging vs parallel pixels with realistic decoding |
+| WP3 GATE run has no scatter labels (earlier GATE campaigns had them, with the old detector model) | PLANNED | rerun WP3 GATE (fluorescence off) with primary / phantom / pre-crystal labels after a debug-partition test that the labels survive the block readout; gives an independent GATE primary-only reference |
+| gammart truth MC at GATE-like counts (2 × 10¹⁰ → 2 × 10¹¹ photons per phantom) | PLANNED | about 11 GPU-h, before WP5 |
+| Model-based scatter | PARKED | only for a realistic head |
+
+: Open items. {#tbl-open tbl-colwidths="[50,20,30]"}
+
+<!-- source: PLAN WP2, WP3 "Open issues", WP4 bullets and "Open", sections WP2b/WP2c/WP5/WP6. -->
+
+{{< pagebreak >}}
+
+# Appendix {.appendix}
+
+## Square-pinhole formulas {#sec-square}
+
+<!-- source: 2026-10-28_analytic_resolution/derivation/square_pinhole.md §3.2, §3.3, §3.5, §3.8; references_seed.md (verification levels); review/review_cite.md items 3-5 -->
+
+All widths in this section are in the knife-edge (pinhole) plane; multiply by $(b+f)/f$ (6.54 at the helmet centre) for the blur at the object (@tbl-centre). **Conventions.** $\theta$ is measured from the module axis, and $\varphi$ is the azimuth of the tilt relative to the $x$ side. $\Delta L_k = \ln 2/\mu = 0.1909$ mm and $t = \tan(\alpha/2) = 1$. The parallel-beam approximation holds for $b \ge 53$ mm.
+
+The widths along the two sides are
+
+$$
+W_x = w + \Delta L_k\cos\theta\Big(t - \frac{\tan^2\theta\cos^2\varphi}{t}\Big),\qquad
+W_y = w + \Delta L_k\cos\theta\Big(t - \frac{\tan^2\theta\sin^2\varphi}{t}\Big).
+$$ {#eq-wsides}
+
+- **Published form:** these are exactly the slit resolution widths of Accorsi et al. [@accorsi2008, eq. 31], applied to each pair of the square's edges (zero numerical difference at 30°); along the tilt this is also Accorsi–Metzler eq. 22 with $d \to w$ [@accorsi2004].
+- **Across the tilt:** the result is Accorsi–Metzler eq. 25 without its small curvature term.
+- **Diagonal:** the point-profile FWHM along the diagonal is $\sqrt 2\,W$.
+- *Worked number:* C at 30° gives $W_\parallel = 1.325$ mm and $W_\perp = 1.380$ mm, against 1.406 mm at 0°.
+
+The penetration-effective area is
+
+$$
+A_{eff}(\theta,\varphi) = w^2 + \frac{w\cos\theta}{\mu t}\,(2t^2 - \tan^2\theta) + \frac{t^2\cos^2\theta}{\mu^2}\,(1-M)\big[3(1-m^2) - (1-M)^2\big],
+$$ {#eq-aeff}
+
+with $M = \max(|\tau_x|, |\tau_y|)/t$ and $m = \min(|\tau_x|, |\tau_y|)/t$, where $\tau_x = \tan\theta\cos\varphi$ and $\tau_y = \tan\theta\sin\varphi$.
+
+- At $\theta = 0$ it reduces to the Paix form $w_s^2 = w^2 + 2wt/\mu + 2t^2/\mu^2$.
+- Metzler and Moore [@metzler2020] give the rectangular-pinhole sensitivity in closed form. We checked their eqs. 22 and 25 against the paper (read in full, 30 Oct). @eq-aeff equals $w^2$ plus their eq. 22 (the penetration term), proven symbolically in SymPy (difference exactly 0) and confirmed by an exact ray trace of our collimator solids.
+- *Worked number:* C gives $A_{eff}$ = 2.297 mm² at 0° and 2.027 mm² at 30° with φ = 0 (@tbl-trace).
+
+The RMS of the square is isotropic even with penetration. By our calculation, penetration changes the RMS of the small apertures by a factor of about 2 but their FWHM only by about 1.3 (A: RMS 0.327 vs geometric 0.161 mm). Variance-based figures of merit should therefore use the penetration RMS. The RMS definitions are those of Metzler et al. [@metzler2002].
+
+| case | FWHM $x$, trace / model | $A_{eff}$, trace / model (mm²) |
+|:---|:---|:---|
+| A, 0° | 0.7469 / 0.7469 | 0.7669 / 0.7669 |
+| C, 0° | 1.4058 / 1.4059 | 2.2965 / 2.2969 |
+| C, 30°, φ = 0 | 1.3252 / 1.3252 | 2.0268 / 2.0269 |
+| D, 30°, φ = 45° | 2.1445 / 2.1446 | 4.8967 / 4.8970 |
+
+: Exact ray trace of the GATE collimator solids vs the closed forms (widths in the knife-edge plane, mm). {#tbl-trace tbl-colwidths="[30,35,35]"}
+
+**Derivation summary.**
+
+- **Normal incidence.** $d_{re}$ in @eq-dre is exact along a side.
+- **Off axis.** The area falls with angle, by 22 % for A and 7 % for D at 30°.
+- **Check.** Both forms agree with an exact ray trace of the GATE collimator solids: FWHM to 10⁻⁴ mm, area to 0.03 %.
+- **Corrected error.** The earlier script used $g = w_s^2\cos^3\theta/(4\pi r^2)$ with the slant distance $r$. That undercounts oblique modules by $\cos^2\theta$ (0.75 at 30°). The correct obliquity is @eq-sens; Phase 0 confirms it, since the old form reads 1.18 for $\theta > 28°$.
+- **No single round equivalent.** The diagonal/side FWHM ratio is √2. A square matches a round pinhole of diameter $1.13w$ for equal area, $w$ for equal side FWHM, and $1.155w$ for equal RMS.
+- **What is published and what is not.** The side widths are the slit result [@accorsi2008, eq. 31]; the strip sensitivity is their eq. 30; the full area with corners is @metzler2020. We found no paper (ten read in full, including the slit-slat work) stating that each side of a square behaves exactly like a slit, with the corners playing no part, or giving the √2 diagonal width with penetration. These are modest consequences, checked against the exact ray trace, not new formulas.
+
+![Point-profile cuts through the centre of aperture C from the exact ray trace, at 0° (top) and 30° (bottom), cropped from the derivation note's figure. Look at the diagonal cut (orange): √2 wider than the sides.](img/psf_C_cuts.png){#fig-psf width=36%}
+
+![Phase 0 (redrawn from phase0.json, uniform designs, all points). Left: gammart MC sensitivity over @eq-sens against incidence angle; flat up to 37°, lower at 38–41°. Right: gammart aperture spot width against $R_g$.](img/phase0_sens_width.png){#fig-phase0 width=84%}
+
+## Scatter-correction details
+
+<!-- source: pytorch-optix/examples/wp4_common.py, wp4_recon.py; PLAN WP4; FN truth_windows -->
+
+- **Windows** (blurred energy): main 126–154 keV; lower 120.4–126 keV; upper 154–159.6 keV. Each side window is 20 % of the main-window width and adjacent to it. One energy blur per event is shared by all windows.
+- **Smoothing:** Gaussian with σ = 2 cells within each module; the edge-strip element keeps its own TEW value.
+- **Oracle:** the truth Monte Carlo's scattered classes (phantom + pre-crystal), scaled to the data set's primaries. For GATE fluorescence-on data it is also multiplied by the fluorescence factor. It is an upper bound, not a method.
+- **"tewcal" step:** TEW with the primary tail (2.1 % per window from the primary class) removed from the side windows. It underestimates the scatter total by 18 % and is not used.
+- **TEW total over true scatter** (from the truth files): Jaszczak 1.153, Derenzo 1.054, triple line 1.077.
+- **Window composition:** the primary share is 17.8 / 13.0 / 14.4 % in the lower window and 92.5 / 89.8 / 90.7 % in the upper window (Jaszczak / Derenzo / triple line).
+- **Truth classes:** primary (first interaction in a crystal); phantom-scattered (an earlier interaction in the phantom); pre-crystal (earlier interactions only in collimator, shield or other non-phantom material). The class is the same per photon and per (photon, module); there are no cross-module cases.
+
+**Supplementary figures.** @fig-kernel, @fig-profile, @fig-scorecard, @fig-wp2b, @fig-terms and @fig-lir support the resolution, aperture and reconstruction sections; they are placed on the following pages.
+
+![First interactions per pixel used to fit the kernel, aperture variant 0 (A), pooled over modules and the 8 symmetries of the square. Vermilion: empty rows. Left: the WP2 source left 156 rows empty. Right: the refit fills every row.](img/wp4_kernel_coverage.png){#fig-kernel width=66%}
+
+![Jaszczak uniform section (z −90…−50 mm), GATE data and the primary-only reference, 128 iterations: ring means in 5 mm rings, normalised to the mean over ρ < 60 mm. Look at the dotted curve: without AC the centre reads low and the rim high (GATE cupping 0.875). The thin reference curve is noisy because gammart's primary-only data have few counts.](img/wp4_uniform_profile.png){#fig-profile width=62%}
+
+![Derenzo V/P against rod-peak noise, iterations 1–32 along each curve (redrawn from the scorecard files); dotted line: the matched-noise point (2.5 %). Look at the 8 mm panel: all C (vermilion) is lowest at the dotted line; all A (yellow) is clearly worse.](img/scorecard_derenzo.png){#fig-scorecard width=96%}
+
+![WP2b: V/P of the 8 mm rods for 12 mixed maps and uniform C (from map_variation.json); shaded: ±1 between-map SD (0.039) around index mod 4.](img/wp2b_maps.png){#fig-wp2b width=70%}
+
+![Projection FWHM against distance $b$ for each aperture (solid), the aperture term alone (dotted) and the detector term (dashed); redrawn with the formulas of analytic.py. The dashed line is a floor that no pinhole size removes; converging pixels lower it by 23 % (27/35).](img/terms_vs_b.png){#fig-terms width=86%}
+
+![LIR profiles at ρ = 0 and 60 mm (copied from the 28 Oct update): GATE matrix (grey), noiseless gammart (blue), and gammart with GATE-like counting noise (dashed). The noise produces the narrow spike.](img/ideal_lir_profile.png){#fig-lir width=62%}
+
+## Files and provenance
+
+Paths are relative to `~/Work/RPIL/QMIRT/`.
+
+| item | location |
+|:---|:---|
+| paper-2 plan with all WP results | `pytorch-optix/docs/paper2_plan.md` |
+| WP0 | `pytorch-optix/out/wp0/bands_t2.json`, `spectra_t2.png` |
+| WP1 | `pytorch-optix/out/wp1/wp1_results.json`; `examples/wp1_*.py` |
+| WP2b | `pytorch-optix/out/wp2b/scorecard/map_variation.json` |
+| WP3 | `pytorch-optix/out/wp3/wp3_results.json`, `wp3_recon_results.json`; `examples/wp3_*.py` |
+| WP4 metrics and images | `pytorch-optix/out/wp4/wp4_results.json`, `recon/<ph>_<step>_<data>_it<NN>.npy` |
+| WP4 truth MC and kernels | `pytorch-optix/out/wp4/truth/*.npz`, `kernel_sphere140.npz`; `out/wp2/mc_sphere_water.npz` |
+| resolution analysis | `qmirt-gate-10-sim/dev/reports/2026-10-28_analytic_resolution/` (`analytic_baseline.qmd`, `analytic.py`, `_tables/`, `phase0/`, `lir/`, `derivation/square_pinhole.md`) |
+| scorecard | `qmirt-gate-10-sim/dev/python/design_scorecard/r100_2026-10-26/*/scorecard.json` |
+| ACCESS | `pytorch-optix/docs/access_supplement/progress_report.qmd` |
+| this report | `scripts/make_figures.py` (figures, `img/figure_numbers.json`), `report.qmd`, `references.bib`, `build.sh`, `ingredients/draft_log.md` |
+
+: Provenance index. {#tbl-files tbl-colwidths="[24,76]"}

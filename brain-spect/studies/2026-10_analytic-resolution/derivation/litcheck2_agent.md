@@ -1,0 +1,9 @@
+I've added §5 to `literature_check.md` and changed nothing else. Python wasn't permitted here, so I worked the numbers by hand; they match the ray-trace table in §3.8.
+
+1. **Closed forms.** Two of the four papers have one, both for a slit; none has one for a square or rectangle.
+   - **Accorsi et al. 2008, eq. (31), p. 713** derives the slit width at oblique incidence, with separate angles for the two directions.
+   - **Novak et al. 2008, eq. (7), p. 956** reuses the round-pinhole formula (Accorsi & Metzler 2004, eq. 22) for a slit, with a single angle, not derived.
+   - **Accorsi & Metzler 2005** covers round apertures only. Its eq. (33) is our side formula along the tilt with unequal slopes on the two sides.
+2. **Comparison.** Our boxed $W_x$, $W_y$ are identical to Accorsi 2008 eq. (31), including the $\varphi$ dependence and the across-tilt case. At 30°: 0.6662/0.7214 mm (w = 0.556) and 1.3252/1.3804 mm (w = 1.215), zero difference. Novak's single-angle form is wrong across the tilt whichever way its angle is read: −0.055 or +0.026 mm. The sensitivity strip term is exactly Accorsi 2008 eq. (30), which is also Li's $w + 2/(\mu\kappa)$. The slit papers miss the square's corners, 0.030 mm² at 30°. Note that Li's κ is a different quantity from ours.
+3. **Metzler 2012** has no equations. They used ray-traced projections averaged over direction, and the round-pinhole widths at normal incidence for the design curves. Their Table II is inconsistent as printed: 3π/8 is 1.178, not 1.12.
+4. **Novelty.** The side widths, path lengths, unequal slopes and strip area are all published. Not found anywhere: the proof that each side behaves exactly like a slit with the corners playing no part, the √2 diagonal with penetration, the $\varphi$-average, and the note that a straight edge has no cone-curvature term. These are modest consequences, not new formulas. §5.4 has the suggested paper-2 paragraph with citations.

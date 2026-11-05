@@ -1,0 +1,259 @@
+{
+ "box_conv_fwhm_mm": 11.08,
+ "gauss_quadrature_fwhm_mm": 14.4,
+ "wp1_cases": 10,
+ "wp1_ratio_range": [
+  0.9991,
+  1.0035
+ ],
+ "wp3_photopeak_band_off": {
+  "jaszczak": 1.0023,
+  "derenzo": 1.0026,
+  "triple": 1.0032
+ },
+ "truth_windows": {
+  "jaszczak": {
+   "main": {
+    "primary": 76.32,
+    "phantom": 22.35,
+    "precrystal": 1.33,
+    "total": 5406842.0
+   },
+   "lower": {
+    "primary": 17.76,
+    "phantom": 81.56,
+    "precrystal": 0.68,
+    "total": 495227.0
+   },
+   "upper": {
+    "primary": 92.48,
+    "phantom": 6.13,
+    "precrystal": 1.39,
+    "total": 94989.0
+   },
+   "tew_total_over_true_scatter": 1.1525,
+   "upper_scatter_share_of_main_scatter_pct": 0.56,
+   "lower_scatter_share_of_main_scatter_pct": 31.81
+  },
+  "derenzo": {
+   "main": {
+    "primary": 69.2,
+    "phantom": 29.42,
+    "precrystal": 1.37,
+    "total": 4395726.0
+   },
+   "lower": {
+    "primary": 13.0,
+    "phantom": 86.47,
+    "precrystal": 0.53,
+    "total": 499075.0
+   },
+   "upper": {
+    "primary": 89.82,
+    "phantom": 8.62,
+    "precrystal": 1.57,
+    "total": 71638.0
+   },
+   "tew_total_over_true_scatter": 1.0539,
+   "upper_scatter_share_of_main_scatter_pct": 0.54,
+   "lower_scatter_share_of_main_scatter_pct": 32.07
+  },
+  "triple": {
+   "main": {
+    "primary": 71.59,
+    "phantom": 27.07,
+    "precrystal": 1.33,
+    "total": 3918026.0
+   },
+   "lower": {
+    "primary": 14.42,
+    "phantom": 84.94,
+    "precrystal": 0.63,
+    "total": 413400.0
+   },
+   "upper": {
+    "primary": 90.7,
+    "phantom": 7.85,
+    "precrystal": 1.46,
+    "total": 65961.0
+   },
+   "tew_total_over_true_scatter": 1.0767,
+   "upper_scatter_share_of_main_scatter_pct": 0.55,
+   "lower_scatter_share_of_main_scatter_pct": 31.79
+  }
+ },
+ "kernel_empty_rows": {
+  "old": [
+   156,
+   156,
+   120,
+   104
+  ],
+  "old_min_count": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "new": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "new_min_count": [
+   3036,
+   5444,
+   11314,
+   29190
+  ]
+ },
+ "jaszczak_profile_it128": {
+  "ring_centres_mm": [
+   2.5,
+   7.5,
+   12.5,
+   17.5,
+   22.5,
+   27.5,
+   32.5,
+   37.5,
+   42.5,
+   47.5,
+   52.5,
+   57.5
+  ],
+  "air/gate_on": [
+   0.909,
+   0.842,
+   0.854,
+   0.861,
+   0.881,
+   0.91,
+   0.925,
+   0.947,
+   0.989,
+   1.032,
+   1.109,
+   1.147
+  ],
+  "ac/gate_on": [
+   1.095,
+   1.017,
+   0.997,
+   1.031,
+   1.039,
+   1.044,
+   1.04,
+   1.015,
+   1.009,
+   0.992,
+   0.987,
+   0.933
+  ],
+  "ac_k_tew/gate_on": [
+   1.106,
+   1.044,
+   1.009,
+   1.04,
+   1.048,
+   1.036,
+   1.028,
+   1.006,
+   1.005,
+   0.985,
+   1.007,
+   0.929
+  ],
+  "ac_k/gammart_primary": [
+   1.206,
+   0.908,
+   0.862,
+   1.102,
+   1.0,
+   1.048,
+   1.014,
+   0.957,
+   1.04,
+   1.018,
+   0.942,
+   1.004
+  ]
+ },
+ "slices": {
+  "iterations": 64,
+  "post_filter_fwhm_mm": 6.0,
+  "derenzo_z_mm": [
+   -29.0,
+   29.0
+  ],
+  "triple_z_mm": [
+   -19.0,
+   19.0
+  ],
+  "jaszczak_rod_z_mm": [
+   29.0
+  ],
+  "jaszczak_sphere_z_mm": [
+   -29.0,
+   -27.0
+  ],
+  "jaszczak_background_voxels": {
+   "rods": 1264,
+   "spheres": 2163
+  },
+  "derenzo_norm_rods": 10
+ },
+ "phase0_sens_ratio": {
+  "theta_max_deg": 41.0,
+  "theta_le_37": [
+   0.971,
+   1.0
+  ],
+  "theta_gt_37_min_max": [
+   0.863,
+   0.997
+  ],
+  "n_modules_gt_37": 128,
+  "n_total": 2044
+ },
+ "wp2b_between_map_sd_vp8": 0.039,
+ "triple_scale": {
+  "Mar23_xi_gate": {
+   "sides_mm": [
+    84.2,
+    84.7,
+    120.3
+   ],
+   "scale": 1.1292,
+   "fwhm_mm": [
+    1.5,
+    6.4
+   ]
+  },
+  "Mar23_xi_parallel_1mm": {
+   "sides_mm": [
+    85.1,
+    85.6,
+    121.6
+   ],
+   "scale": 1.1415,
+   "fwhm_mm": [
+    4.3,
+    6.8
+   ]
+  },
+  "Mar23_xi_converging_1mm": {
+   "sides_mm": [
+    73.0,
+    74.3,
+    104.5
+   ],
+   "scale": 0.9835,
+   "fwhm_mm": [
+    3.2,
+    5.8
+   ]
+  }
+ }
+}

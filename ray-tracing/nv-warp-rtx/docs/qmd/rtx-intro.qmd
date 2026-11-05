@@ -1,0 +1,36 @@
+---
+title: "Introduction to Raytracing for SPECT System Response Matrix"
+subtitle: "Geometric Modeling and System Matrix Calculation in radmeshrx"
+author: "Fang Han, Ph.D."
+format:
+  html:
+    toc: true
+    theme: cosmo
+    code-fold: show
+    html-math-method: katex
+---
+
+## Objective
+Define the production formula for one system-matrix element $h_{ij}$ and map every term to the current raytracing implementation.
+
+## Master Formula
+For detector voxel $i$ and source voxel $j$, define
+
+$$
+\begin{aligned}
+h_{ij}
+&= P_{\mathrm{att},ij}\, P_{\mathrm{abs},ij}\, G_{ij} \\
+P_{\mathrm{att},ij}
+&= \exp\!\left(-\sum_{k=1}^{K} \mu_k\,L_{k,ij}\right) \\
+P_{\mathrm{abs},ij}
+&= 1 - \exp\!\left(-\mu_{\mathrm{crystal}}\,L_{\mathrm{crystal},ij}\right) \\
+G_{ij}
+&= \frac{\Omega_{ij}}{4\pi}.
+\end{aligned}
+$$
+
+## Term-to-Code Mapping
+
+- $\mu_k$: user/material table input (external mapping by object/material ID).
+- $L_{\text{crystal},ij}$: computed from exact detector-voxel surface intersections (12-triangle voxel mesh, backward ray query).
+- $\mu_{\mathrm{crystal}}$

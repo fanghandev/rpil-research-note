@@ -1,0 +1,17 @@
+runs: 50
+events: 5000062784
+tracks: 5227238274
+steps: 7845815421
+init: 3.31971
+duration: 1.50997
+pps: 38326
+tps: 40067
+sps: 60139
+start_time: Mon May 18 16:10:14 2026
+stop_time: Wed May 20 04:24:38 2026
+sim_start_time: 0.0
+sim_stop_time: 50.0
+threads: 1
+arch: Linux
+python: 3.12.3
+track_types: {}

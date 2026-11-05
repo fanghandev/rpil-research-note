@@ -1,0 +1,25 @@
+# Quarto
+**/.quarto
+**/libs
+*.quarto_ipynb*
+_freeze
+site_libs
+.quarto
+
+# MacOS
+.DS_Store
+
+
+# Rendered and scratch outputs
+**/_output/
+**/_build/
+
+# Working notes not meant for the repo
+REORG_PLAN.md
+
+# Python caches
+__pycache__/
+
+# Apple Keynote/Numbers originals stay local (PDF/xlsx exports are tracked; their contents cannot be scrubbed)
+*.key
+*.numbers

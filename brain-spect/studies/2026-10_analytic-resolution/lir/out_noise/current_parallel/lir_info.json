@@ -1,0 +1,109 @@
+{
+ "case": "current_parallel",
+ "lambda_max": 6568532689.406727,
+ "nnz": 400579702,
+ "n_voxels": 904960,
+ "fov_mm": 120.0,
+ "rel_threshold": 0.0001,
+ "dropped_share_mean": 0.00025875089386698783,
+ "runs": [
+  {
+   "radius_mm": 0,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 52,
+   "seconds": 0.4318356513977051
+  },
+  {
+   "radius_mm": 0,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 148,
+   "seconds": 1.215735912322998
+  },
+  {
+   "radius_mm": 0,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 431,
+   "seconds": 3.526869297027588
+  },
+  {
+   "radius_mm": 30,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 52,
+   "seconds": 0.43270015716552734
+  },
+  {
+   "radius_mm": 30,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 150,
+   "seconds": 1.2334949970245361
+  },
+  {
+   "radius_mm": 30,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 438,
+   "seconds": 3.585620403289795
+  },
+  {
+   "radius_mm": 60,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 53,
+   "seconds": 0.44113612174987793
+  },
+  {
+   "radius_mm": 60,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 152,
+   "seconds": 1.2503459453582764
+  },
+  {
+   "radius_mm": 60,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 453,
+   "seconds": 3.7090647220611572
+  },
+  {
+   "radius_mm": 80,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 54,
+   "seconds": 0.4491443634033203
+  },
+  {
+   "radius_mm": 80,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 155,
+   "seconds": 1.275089979171753
+  },
+  {
+   "radius_mm": 80,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 472,
+   "seconds": 3.8687422275543213
+  },
+  {
+   "radius_mm": 95,
+   "alpha_fraction": 0.01,
+   "cg_iterations": 54,
+   "seconds": 0.449704647064209
+  },
+  {
+   "radius_mm": 95,
+   "alpha_fraction": 0.001,
+   "cg_iterations": 159,
+   "seconds": 1.3079197406768799
+  },
+  {
+   "radius_mm": 95,
+   "alpha_fraction": 0.0001,
+   "cg_iterations": 481,
+   "seconds": 3.9478487968444824
+  }
+ ],
+ "wall_s": 246.57617783546448,
+ "He_column_sums": [
+  1573.0,
+  1528.0,
+  1500.0,
+  1426.0,
+  1266.0
+ ]
+}

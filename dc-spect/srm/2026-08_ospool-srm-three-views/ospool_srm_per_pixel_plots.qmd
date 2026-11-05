@@ -1,0 +1,183 @@
+---
+title: "OSPool SRM Per-Pixel Projection Plots"
+format:
+    html:
+        toc: true
+        toc-depth: 2
+        code-fold: false
+    typst:
+        toc: true
+---
+
+This page shows all available per-pixel projection plot images under `per_pixel`.
+
+## OSPool GATE 10 Simulated SRM
+
+::: {.content-visible when-format="html"}
+<style>
+	:root {
+		--bg: #f7f9fc;
+		--card: #ffffff;
+		--border: #dbe3ef;
+		--text: #17212b;
+		--muted: #536273;
+		--accent: #1f6feb;
+	}
+
+	body {
+		background: radial-gradient(circle at 10% 10%, #eef4ff 0%, var(--bg) 45%, #f3f6fb 100%);
+		color: var(--text);
+	}
+
+	.head-block {
+		margin: 1.8rem 0 2.2rem;
+		padding: 1rem;
+		background: color-mix(in srgb, var(--card) 92%, #e8f0ff 8%);
+		border: 1px solid var(--border);
+		border-radius: 14px;
+	}
+
+	.head-title {
+		margin: 0 0 0.8rem;
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: #153a68;
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 0.9rem;
+	}
+
+	.plot-card {
+		margin: 0;
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		overflow: hidden;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	}
+
+	.plot-card img {
+		width: 100%;
+		height: auto;
+		display: block;
+	}
+
+	.plot-card figcaption {
+		padding: 0.5rem 0.65rem 0.6rem;
+		font-size: 0.86rem;
+		color: var(--muted);
+		border-top: 1px solid #edf2fa;
+	}
+
+	.summary-box {
+		padding: 0.75rem 0.9rem;
+		background: #eef5ff;
+		border: 1px solid #cfdef4;
+		border-radius: 10px;
+		color: #234361;
+	}
+</style>
+
+<div class="summary-box" id="summary">Loading plot gallery...</div>
+<div id="plots-root"></div>
+
+<script>
+	const heads = ["01", "09", "10", "11", "12"];
+	const maxPixelByHead = {
+		"01": 39,
+		"09": 40,
+		"10": 40,
+		"11": 40,
+		"12": 40,
+	};
+
+	const root = document.getElementById("plots-root");
+	const summary = document.getElementById("summary");
+
+	function pad3(n) {
+		return String(n).padStart(3, "0");
+	}
+
+	let totalExpected = 0;
+	let totalFound = 0;
+
+	heads.forEach((head) => {
+		const headBlock = document.createElement("section");
+		headBlock.className = "head-block";
+
+		const h = document.createElement("h2");
+		h.className = "head-title";
+		h.textContent = `Head ${head}`;
+		headBlock.appendChild(h);
+
+		const grid = document.createElement("div");
+		grid.className = "grid";
+		headBlock.appendChild(grid);
+
+		const maxPixel = maxPixelByHead[head] || 40;
+		totalExpected += maxPixel;
+
+		for (let pixel = 1; pixel <= maxPixel; pixel += 1) {
+			const pixelStr = pad3(pixel);
+			const path = `per_pixel/head_${head}/SRM_Projections_Head${head}_Pixel${pixelStr}.png`;
+
+			const fig = document.createElement("figure");
+			fig.className = "plot-card";
+
+			const img = document.createElement("img");
+			img.loading = "lazy";
+			img.alt = `SRM Projections Head ${head}, Pixel ${pixelStr}`;
+			img.src = path;
+
+			const cap = document.createElement("figcaption");
+			cap.textContent = `Head ${head} | Pixel ${pixelStr}`;
+
+			img.addEventListener("load", () => {
+				totalFound += 1;
+				summary.textContent = `Loaded ${totalFound}/${totalExpected} plots.`;
+			});
+
+			img.addEventListener("error", () => {
+				fig.style.display = "none";
+			});
+
+			fig.appendChild(img);
+			fig.appendChild(cap);
+			grid.appendChild(fig);
+		}
+
+		root.appendChild(headBlock);
+	});
+
+	summary.textContent = `Attempting to load ${totalExpected} plots from per_pixel/...`;
+</script>
+:::
+
+
+```{=typst}
+#let heads = (("01", 39), ("09", 40), ("10", 40), ("11", 40), ("12", 40))
+
+#for (head, maxpix) in heads {
+	heading(level: 2, [Head #head])
+
+	for px in range(1, maxpix + 1) {
+		let pxs = if px < 10 {
+			"00" + str(px)
+		} else if px < 100 {
+			"0" + str(px)
+		} else {
+			str(px)
+		}
+
+		figure(
+			image("per_pixel/head_" + head + "/SRM_Projections_Head" + head + "_Pixel" + pxs + ".png", width: 92%),
+			caption: [Head #head | Pixel #pxs],
+		)
+	}
+
+	pagebreak(weak: true)
+}
+```

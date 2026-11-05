@@ -1,0 +1,6 @@
+project:
+  type: default
+  render: [article.qmd, slides.qmd]
+execute:
+  freeze: auto
+  daemon: false

@@ -1,0 +1,67 @@
+vanderhave2008:
+  type: article
+  title: System Calibration and Statistical Image Reconstruction for Ultra-High Resolution Stationary Pinhole SPECT
+  author: ["van der Have, F.", "Vastenhouw, B.", "Rentmeester, M.", "Beekman, F. J."]
+  date: 2008
+  page-range: 960-971
+  serial-number:
+    doi: 10.1109/TMI.2008.924644
+  parent:
+    type: periodical
+    title: IEEE Transactions on Medical Imaging
+    volume: 27
+    issue: 7
+
+han2017:
+  type: article
+  title: "System Calibration for FastSPECT III: An Ultra-High Resolution CCD-Based Pinhole SPECT System"
+  author: ["Han, L.", "Caucci, L.", "Miller, B. W.", "Barrett, H. H.", "Woolfenden, J. M.", "Furenlid, L. R."]
+  date: 2017
+  page-range: 1-3
+  serial-number:
+    doi: 10.1109/NSSMIC.2017.8533027
+  parent:
+    type: proceedings
+    title: 2017 IEEE Nuclear Science Symposium and Medical Imaging Conference (NSS/MIC)
+
+rafecas2004:
+  type: article
+  title: Use of a Monte Carlo-based probability matrix for 3-D iterative reconstruction of MADPET-II data
+  author: ["Rafecas, M.", "others"]
+  date: 2004
+  page-range: 2597-2605
+  serial-number:
+    doi: 10.1109/TNS.2004.834827
+  parent:
+    type: periodical
+    title: IEEE Transactions on Nuclear Science
+    volume: 51
+    issue: 5
+
+lazaro2005:
+  type: article
+  title: "Fully 3D Monte Carlo reconstruction in SPECT: a feasibility study"
+  author: ["Lazaro, D.", "El Bitar, Z.", "Breton, V.", "Hill, D.", "Buvat, I."]
+  date: 2005
+  page-range: 3739-3754
+  serial-number:
+    doi: 10.1088/0031-9155/50/16/006
+  parent:
+    type: periodical
+    title: Physics in Medicine and Biology
+    volume: 50
+    issue: 16
+
+aguiar2014:
+  type: article
+  title: Analytical, experimental, and Monte Carlo system response matrix for pinhole SPECT reconstruction
+  author: ["Aguiar, P.", "Pino, F.", "Silva-Rodríguez, J.", "Pavía, J.", "Ros, D.", "Ruibal, Á.", "El Bitar, Z."]
+  date: 2014
+  page-range: "032501"
+  serial-number:
+    doi: 10.1118/1.4866380
+  parent:
+    type: periodical
+    title: Medical Physics
+    volume: 41
+    issue: 3

@@ -1,0 +1,197 @@
+{
+  "voxel_mm": 2.0,
+  "nozzle_tip_min_radius_mm": 144.5699922554,
+  "max_sphere_diameter_without_overlap_mm": 289.1399845108,
+  "solid_min_radius_on_grid_mm": 144.58215657542254,
+  "cavity_min_count": 24,
+  "centred_sphere_diameter_mm_min1_modules": 289.1643131508451,
+  "centred_sphere_diameter_mm_min8_modules": 289.1643131508451,
+  "centred_sphere_diameter_mm_min24_modules": 289.1643131508451,
+  "centred_sphere_diameter_mm_min48_modules": 228.0,
+  "centred_sphere_diameter_mm_min73_modules": 211.5844984870111,
+  "cavity_radial_profile": [
+    {
+      "r_mm": 2.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137740078110432
+    },
+    {
+      "r_mm": 7.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041377397401670685
+    },
+    {
+      "r_mm": 12.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137740492506711
+    },
+    {
+      "r_mm": 17.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041377376271005943
+    },
+    {
+      "r_mm": 22.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041377410292333066
+    },
+    {
+      "r_mm": 27.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041377367397168525
+    },
+    {
+      "r_mm": 32.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.000413774587995633
+    },
+    {
+      "r_mm": 37.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137723107910569
+    },
+    {
+      "r_mm": 42.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137774304942256
+    },
+    {
+      "r_mm": 47.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041376754814210695
+    },
+    {
+      "r_mm": 52.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041378038076617785
+    },
+    {
+      "r_mm": 57.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041376550336278935
+    },
+    {
+      "r_mm": 62.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041378267243190916
+    },
+    {
+      "r_mm": 67.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041376323853831734
+    },
+    {
+      "r_mm": 72.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041379297619221166
+    },
+    {
+      "r_mm": 77.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137475454570643
+    },
+    {
+      "r_mm": 82.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137974789442702
+    },
+    {
+      "r_mm": 87.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137485316112037
+    },
+    {
+      "r_mm": 92.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.00041379927527412436
+    },
+    {
+      "r_mm": 97.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004137307201609341
+    },
+    {
+      "r_mm": 102.5,
+      "min_count": 73,
+      "mean_count": 73.0,
+      "mean_sens": 0.0004138037878698339
+    },
+    {
+      "r_mm": 107.5,
+      "min_count": 55,
+      "mean_count": 70.55341660707901,
+      "mean_sens": 0.00039397992564021094
+    },
+    {
+      "r_mm": 112.5,
+      "min_count": 44,
+      "mean_count": 64.26421328359098,
+      "mean_sens": 0.0003427111884725811
+    },
+    {
+      "r_mm": 117.5,
+      "min_count": 42,
+      "mean_count": 58.435031204454575,
+      "mean_sens": 0.0002936084663845473
+    },
+    {
+      "r_mm": 122.5,
+      "min_count": 38,
+      "mean_count": 53.17721296373838,
+      "mean_sens": 0.00024805360975647993
+    },
+    {
+      "r_mm": 127.5,
+      "min_count": 34,
+      "mean_count": 49.41370163288646,
+      "mean_sens": 0.000215120140452908
+    },
+    {
+      "r_mm": 132.5,
+      "min_count": 33,
+      "mean_count": 46.638114513752804,
+      "mean_sens": 0.00019113862552746504
+    },
+    {
+      "r_mm": 137.5,
+      "min_count": 32,
+      "mean_count": 44.424000870582475,
+      "mean_sens": 0.00017238074471095382
+    },
+    {
+      "r_mm": 142.5,
+      "min_count": 24,
+      "mean_count": 42.66241316719665,
+      "mean_sens": 0.00015716585600017476
+    }
+  ],
+  "outside_cavity_detectable_cm3": 33625.296,
+  "below_z_-113 (neck opening)": {
+    "volume_cm3": 27338.472,
+    "sens_fraction_of_cavity_total": 0.14174041664491832
+  },
+  "z_>=_-113 (face window / gaps)": {
+    "volume_cm3": 6286.824,
+    "sens_fraction_of_cavity_total": 0.028618235597935242
+  }
+}

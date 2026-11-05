@@ -1,0 +1,19 @@
+Verify quotes and numbers (read-only) in the report ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly/report.qmd against two PDFs.
+- Read the PDFs fully with the Read tool (pages parameter):
+  - Zannoni, Yang, Meng 2021: ~/Work/RPIL/QMIRT/pytorch-optix/references/Design_Study_of_an_Ultrahigh_Resolution_Brain_SPECT_System_Using_a_Synthetic_Compound-Eye_Camera_Design_With_Micro-Slit_and_Micro-Ring_Apertures.pdf
+  - Goorden, Rentmeester, Beekman 2009: ~/Work/RPIL/QMIRT/pytorch-optix/references/Goorden_2009_Phys._Med._Biol._54_6593.pdf
+- In report.qmd, find every sentence citing @zannoni2021 or @goorden2009/@goorden2008, every quoted passage, and the Zannoni results table.
+
+For each item, report:
+- **Quotes:** the exact text in the paper (page and section). Is the report's quote verbatim and complete? Are any words missing or altered, or the quote truncated? Give the full original sentence.
+- **Numbers:** confirm or correct each value:
+  - 502 modules, 250 µm pixels, 1:12 minification;
+  - 168×0.5 / 167×1.5 / 167×3 mm loftholes;
+  - FIM FWHM 20 vs 26 mm;
+  - rods resolved 4 vs 6 mm at S/B 20:1, and the S/B 5:1 results;
+  - CNR/CRC 14.7/35.5 % vs 22.5/36.2 % (bar-chart labels, figure numbers);
+  - section numbers.
+- **Goorden 2009:** does the paper support the report's statement about detectors coarser than 1 mm and magnification (quote it)? Was that statement in the 2008 conference abstract only? Is the 2009 full paper the right citation?
+- **Section references:** are the section numbers cited in the report correct?
+
+Output a numbered list: location in the report, status (ok / fix), and the exact replacement text where a fix is needed. Under 600 words.

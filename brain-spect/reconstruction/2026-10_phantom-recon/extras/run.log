@@ -1,0 +1,16 @@
+fit steps 0: no corrections
+fit steps 1: + support
+fit steps 2: + TEW
+fit steps 3: + AC
+fit steps ideal
+fit resolution 2 mm
+fit resolution 1.5 mm
+fit resolution 1 mm
+fit noisefree 2 mm
+fit noisefree 1.5 mm
+fit noisefree 1 mm
+profiles resolution 100
+profiles resolution 400
+profiles steps 100
+profiles steps 400
+wrote ../reports/2026-10_phantom_recon/extras/extras.json

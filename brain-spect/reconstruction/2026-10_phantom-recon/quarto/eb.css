@@ -1,0 +1,4 @@
+/* error_budget.qmd: readable data tables (one line per cell) */
+.reveal .ebtable table { font-size: 0.72em; }
+.reveal .ebtable td, .reveal .ebtable th { white-space: nowrap; padding: 0.2em 0.6em; }
+.reveal .ebnote ul { font-size: 0.8em; }

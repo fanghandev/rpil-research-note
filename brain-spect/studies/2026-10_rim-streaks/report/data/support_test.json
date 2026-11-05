@@ -1,0 +1,14 @@
+{
+ "validation": {
+  "(0, 0, 0)": {
+   "pixel_correlation": 0.9999289794922803,
+   "total_ratio_gammart_over_gate": 1.0286394692170882,
+   "head_correlation": 0.999989292407395
+  },
+  "(60, 0, 20)": {
+   "pixel_correlation": 0.9997265706337712,
+   "total_ratio_gammart_over_gate": 1.030413330655184,
+   "head_correlation": 0.9999873398939884
+  }
+ }
+}

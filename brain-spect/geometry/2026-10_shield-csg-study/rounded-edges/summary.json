@@ -1,0 +1,64 @@
+{
+  "stl_volume_cm3": 1721.6221321897635,
+  "csg_volume_cm3": 1718.255413511576,
+  "film_stl_minus_csg_cm3": 21.194646352514887,
+  "film_csg_minus_stl_cm3": 18.50456690495261,
+  "other_stl_minus_csg_mm3": 1136.696324482259,
+  "other_csg_minus_stl_mm3": 460.05709380648017,
+  "stl_vertex_to_csg_abs_mm": {
+    "p50": 0.12364881116700852,
+    "p99": 0.4337573377685489,
+    "p999": 0.5522905397555937,
+    "max": 1.0473016799612913
+  },
+  "csg_vertex_to_stl_abs_mm": {
+    "p50": 0.06534957691978377,
+    "p99": 1.586299244526389,
+    "p999": 2.2078515403747065,
+    "max": 3.964555069133691
+  },
+  "rounded": true,
+  "shield_parameters": {
+    "r_inner_mm": 145.0,
+    "r_outer_mm": 155.0,
+    "bottom_elevation_deg": -47.0,
+    "window": [
+      [
+        [
+          56.25,
+          123.75
+        ],
+        [
+          -26.5,
+          -5.75
+        ]
+      ],
+      [
+        [
+          50.524,
+          129.476
+        ],
+        [
+          -47.0,
+          -26.5
+        ]
+      ]
+    ],
+    "rounds": {
+      "inner_edge_radius_mm": 4.73,
+      "window_corner_radius_mm": 6.0,
+      "bottom_junction_radius_mm": 14.0,
+      "bottom_junction_centre_mm": [
+        14.0,
+        13.4
+      ]
+    },
+    "aperture": {
+      "width_at_pinhole_mm": 27.528,
+      "width_slope": -1.5861,
+      "lip_start_z_mm": 3.8,
+      "lip_width_mm": 21.65,
+      "top_module_rotation_deg": 2.5
+    }
+  }
+}

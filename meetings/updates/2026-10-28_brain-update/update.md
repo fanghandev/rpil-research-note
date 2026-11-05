@@ -1,0 +1,350 @@
+---
+title: "Brain SPECT study: where we stand (research-group update)"
+subtitle: "73-module knife-edge pinhole helmet, Tc-99m 140 keV, CsI(Tl) 25 x 25 pixel detectors"
+author: "Fang Han"
+date: 2026-10-28
+---
+
+<!--
+MASTER SOURCE of the 2026-10-28 update. quarto/article.qmd is generated from this file by build.sh (front matter + this body);
+quarto/slides.qmd is written by hand from the same material (figures and numbers must agree; build.sh checks the figures).
+Rule: every number comes from an analysis output or an existing document; the source is named in the "Source" line of each section.
+Missing numbers are stated as missing, never guessed.
+CONFIDENTIALITY (system is going commercial): no exact geometry, no per-module aperture assignment, no pinhole-width table, no
+aperture-map figure, no 3D scene precise enough to recover the layout. Pinhole sizes are called A < B < C < D.
+Status words used throughout: FINAL (checked, will not change), PROVISIONAL (prototype or one data set), PLANNED (not run).
+-->
+
+# 1. Summary and decisions for the PI
+
+## 1.1 Summary
+
+- **The simulation chain is validated against GATE where it matters for paper 1.** The deterministic ray-traced system matrix (gammart, OptiX) reproduces a 10^14-primary GATE system matrix column by column (1,508 columns, head-level pull rms 1.008) and gives the same reconstructions: contrast, line FWHM and ROI ratios within 1-4 %, with a +1.6-1.9 % absolute-scale offset. It costs 1.35 GPU-minutes instead of about 4.9 x 10^5 CPU core-hours.
+- **Paper-2 checks on the new detector model:** the spectrum mismatch between GATE and gammart is explained (room air and Doppler broadening, outside the window; FINAL), and the single-module window counts agree to 0.999-1.004 in 10 cases (FINAL). The converging-pixel matrix is a prototype (about 1 % on 5 modules; PROVISIONAL). The full-system GATE campaign (WP3, 29 Oct) passed its checkpoint: GATE / gammart 1.002-1.003 in all three phantoms (fluorescence off), with an open edge-triangle question (6-7.5 % of window events for extended phantoms).
+- **Reconstructions:** OSEM with 8 module subsets, attenuation correction in the system model, and a post-filter is the reference. The attenuation correction is necessary; scatter correction on the full data is still open.
+- **Resolution (the PI's question):** the 3.5 mm "NEMA FWHM" of the triple line is the 2 mm voxel grid floor of an isolated hot line that OSEM sharpens; it is not the resolution of the system. The Derenzo and the spheres say **about 5-7 mm for extended objects** (5 mm rods partly separate, 6 mm rods separate). (The earlier "system-only ideal response 5.2-6.7 mm" was narrowed by Monte Carlo noise in the GATE matrix and is withdrawn; see 6.2.) The working explanation is a sharp core on a broad base of the reconstructed point response. **This explanation is provisional:** the formula -> system matrix -> local impulse response -> phantom chain (plan Phases 0-3) is planned, not run.
+- **Apertures:** in a reconstruction scorecard (100 noise realisations, matched noise), a uniform design with the second-largest of the four sizes (C) beats the current index-mod-4 mix (8 mm rods V/P 0.41 vs 0.48, +-0.02); no mixed design beats uniform; continuous widths gain a little more (0.38). The reason is that Fisher information adds across heads, and a single frequency band is won by a single size. Where the sizes sit on the helmet is a second-order effect. The result was obtained with one system matrix for data and reconstruction and parallel pixels (PROVISIONAL until re-checked on GATE data and on the converging detector).
+- **Not available yet:** the measured local impulse response (Phase 0, formulas vs gammart, was done after this update: see 6.5), and a like-for-like comparison with commercial or published brain SPECT systems (WP6 only planned; the repository holds no numbers for it).
+
+## 1.2 Decisions and asks for the PI
+
+| # | decision | what we propose | why now |
+|---|---|---|---|
+| 1 | **Aperture choice** | If the 18/18/18/19 inventory is not binding: build uniform (size C). If it is binding: use an annealed placement map (small, repeatable gain over random: V/P 7 mm -0.035). Do not defend index-mod-4: it is an ordinary random map. | The placement is a permanent, build-time choice (decided 2026-10-27). |
+| 2 | **Which resolution number paper 2 quotes** | Quote the Derenzo (smallest separable rods at stated iterations, noise and post-filter) and the sphere edges; use the ideal local impulse response only to compare designs at a fixed regularisation; report the line FWHM only with the explanation. Never quote the 3.5 mm as "the resolution". | The PI asked; reviewers will ask too. |
+| 3 | **Run the resolution chain** | Phase 0 is done (6.5); approve Phase 1-2 (measured local impulse response in the Derenzo, 6 perturbed reconstructions on ERIS or overnight). | Turns the working explanation into a result. |
+| 4 | **Publication order** | Paper 1 (engine) -> paper 2 (system and apertures, with the resolution chain as a section or short companion) -> paper 3 (neural surrogate, last, heavy review). | Paper 2 cites paper 1's validation and never re-claims it; paper 3 needs paper 2's aperture result. |
+| 5 | **Open scope questions for paper 2** | Energy window by simulation (WP2c); scatter-correction method (WP4); comparators for WP6 (clinical LEHR, AdaptiSPECT-C, G-SPECT-I); include XCAT / mesh50 or keep them dropped. | They set the work after WP3. |
+
+# 2. Background
+
+## 2.1 The system
+
+*Source: `pytorch-optix/docs/paper2_plan.md` (sections 2-3), `docs/design_surrogate/article.qmd`, `resolution_theory.md`. Exact geometry is deliberately not shown (commercial confidentiality).*
+
+![A helmet of 73 modules around the head (schematic, not the real layout) and one module in cross section.](img/helmet_schematic.png){#fig-helmet}
+
+- **Helmet:** 73 independent pinhole modules (heads) arranged around the head so that every point in the brain is seen by many of them at once. No gantry motion: the system is stationary.
+- **Module:** a tungsten knife-edge collimator with a small square pinhole and, behind it, a pixelated CsI(Tl) scintillator read out in a **25 x 25** pixel array. Each module images the field of view through its pinhole, inverted and minified. Per module the detector has 625 pixels, so the whole system has 73 x 625 = 45,625 detector bins.
+- **Pinhole variants:** four square pinhole sizes in the range 0.5-2.0 mm (called A < B < C < D here), assigned by head index: variant = index mod 4. A small pinhole gives a sharp but dim projection, a large one a bright but blurred one.
+- **Detector model (paper 2):** converging pixels whose axes point at the pinhole remove the depth-of-interaction parallax of oblique rays; one converging design serves all 73 modules. Energy resolution 11.8 % FWHM at 140 keV, default window 126-154 keV (about +-10 %).
+- **Isotope:** Tc-99m, 140.5 keV.
+- **Important property:** the dominant contribution to the response comes from the first interaction of a photon through the pinhole; scatter in the phantom is not in the system matrix.
+
+## 2.2 Simulation and reconstruction pipeline
+
+*Source: `docs/engine/` (article, slides), `2026-10_unscattered_update`, `2026-10_phantom_recon`.*
+
+![Data (GATE phantom simulation) and model (system matrix) meet in the reconstruction.](img/pipeline.png){#fig-pipeline}
+
+- **Data: GATE 10** Monte Carlo of a phantom inside the helmet, 15 mCi Tc-99m for 15 min, run on OSPool, Expanse and ERIS. The photons are tagged, so we can reconstruct "unscattered main-window counts" (the cleanest test of the reconstruction itself) or all counts.
+- **Model: the system response matrix (SRM)** says, for each voxel, which detector pixel sees how many counts. Two versions share the same layout:
+  - the **GATE SRM**: Monte Carlo, 10^14 primaries, about 4.9 x 10^5 core-hours, 4.2 % Poisson noise per element;
+  - the **gammart SRM**: ray tracing on the GPU's RT cores (OptiX). It computes the first-interaction response as a deterministic integral (quasi-Monte Carlo quadrature), so there is no Monte Carlo noise in the matrix; 1.35 minutes on one L40S, 0.46 % Frobenius error.
+- **Reconstruction:** OSEM (ordered-subset expectation maximisation), 8 subsets formed by groups of modules, a uniform start and a 2 mm voxel grid. The **attenuation** of the phantom is put into the system model as ray-traced factors per phantom (gammart). A Gaussian post-filter is applied on the saved iterates.
+
+## 2.3 Earlier updates, one line each
+
+*Source: the earlier decks and reports in `qmirt-gate-10-sim/dev/reports/`.*
+
+**2026-10-09: progress report (Oct 7-9).** Phantom simulations running on OSPool and ERIS; the target of 15 mCi for 10 min (about 71 M counts in 10 min for the small Jaszczak) is covered; the large-field brain SRM was 90 % merged (9.14 x 10^13 of 1.016 x 10^14 primaries); gammart was about 40 times faster than before for the same samples (120-150 times when rays that cannot reach a crystal are skipped); the ACR Jaszczak does not fit in the helmet, so the small Jaszczak (placed upside down) is used; the XCAT head uses the published mesh50 model.
+
+**Rim streaks (study closed Oct 8-9).** The radial streaks at the rim of the field of view are a property of the system matrix, set off by sources in the poorly sampled rim zone, not truncation. A uniform object streaks only when its activity reaches the support edge; the bright ring inside hot edges is the maximum-likelihood edge overshoot (Snyder et al. 1987). Recommendation: reconstruct with a small start value outside the body contour.
+
+**2026-10-14: phantom reconstruction.** With support restriction, TEW scatter correction and attenuation correction the activity is recovered quantitatively. SRMs with 2, 1.5 and 1 mm voxels give the same contrast and resolution at every iteration; the 2 mm SRM is kept (5.5 times faster than 1 mm).
+
+**2026-10-16: unscattered update.** Attenuation correction removes the bright rim at the phantom wall (what remains is the edge overshoot, removed by an 8 mm post-filter); OSEM with 8 subsets gives the MLEM image at the same number of updates, 8 times faster; no support threshold is needed; without a post-filter nothing settles, with OSEM 8, 8000 updates and an 8 mm filter the metrics are stable.
+
+**2026-10-20: resolution phantoms.** Six new phantoms (triple lines at 75 and 50 mm, Derenzo 3-8 mm rods, each in water and in air). Hot lines shrink to about 1 mm (the voxel); the Derenzo separates 6 mm rods and partly 5 mm; AC is needed in the model; 4 mm post-filter with 3200 updates as the reference. This update opened the question treated in section 6.
+
+# 3. Analytical baseline: the classic pinhole formulas
+
+*Source: `pytorch-optix/docs/resolution_consistency_plan.md`; `qmirt-gate-10-sim/dev/python/resolution_theory.py`; table in `brain_phantom_recon/osem_reference_2026-10-15/resolution/resolution_theory.md`; unit tests `pytorch-optix/tests/test_multi_pinhole.py`.*
+
+For one pinhole module the textbook formulas give the sensitivity and the resolution of its *projection* (not of the reconstructed image):
+
+- **Geometric resolution** (object space): $R_g = d_e\,(b+f)/f$, with effective pinhole diameter $d_e$, object-to-pinhole distance $b$ and pinhole-to-detector distance $f$.
+- **Intrinsic (detector) resolution**, referred to the object: $R_i / M$ with magnification $M = f/b$.
+- **Total:** $R = \sqrt{R_g^2 + R_i^2}$.
+- **Sensitivity** of a pinhole (Anger): on axis $g = d_e^2 / (16 b^2)$; off axis for incidence angle $\theta$, $g_k = w^2\cos^3\theta/(4\pi r^2)$ per unit area of the aperture.
+- **Penetration:** a knife-edge pinhole transmits some photons through the tungsten edge; the *effective* diameter grows (Paix 1967; Metzler 2001), which is why "with penetration" columns are larger.
+
+![Classic projection resolution on the uniform-plane points: the best single module and the count-weighted combination of all 73 modules, nominal and with penetration.](img/classic_resolution.png){#fig-classic}
+
+What the formulas predict for the brain system (table in `resolution_theory.md`): the best single module has 5.0-8.4 mm (nominal) or 5.5-9.1 mm (with penetration) from the edge of the field to the centre of the uniform plane; the count-weighted projection resolution of all modules is 10.4-14.4 mm nominal, 11.0-15.2 mm with penetration. Resolution is better away from the axis because modules are closer to the point.
+
+**Validation of the formulas.**
+
+| level | status |
+|---|---|
+| single pinhole sensitivity: disc solid angle on axis, Anger $d^2\cos^3\theta/(16h^2)$ off axis | unit test, deviation below 0.1-0.2 %; **not the brain system** |
+| single pinhole penetration: knife-edge sensitivity-effective diameter (Paix; Metzler) | unit test, below 0.5 %, on axis only |
+| brain system: projection resolution and sensitivity | computed (`resolution_theory.py`) but **never compared with the system matrix** |
+
+> **Update 28 Oct: Phase 0 has now been run** (see 6.5). The original plan: It is Phase 0 of the plan: at the 18 points of `resolution_theory.md` and the 6 Derenzo sector centres, per module, compare (a) the SRM column sum against $g_k\,d_e^2/w^2$ and (b) the spot FWHM on the detector, back-projected to the object, against $R_k$; both gammart and GATE SRMs; about 1 h on the workstation. Expected (not measured): sensitivity within a few percent and widths within about 10 %.
+
+# 4. Simulation and system-model validation
+
+## 4.1 gammart vs GATE (paper 1)
+
+*Source: `pytorch-optix/docs/engine/` (article and slides, `_variables.yml`); `qmirt-gate-10-sim/dev/python/brain_phantom_recon/gammart_vs_gate_srm_2026-10-22/README.md` and `..._followup_2026-10-22`.*
+
+**Matrix level (FINAL).** gammart is compared with the 1.016 x 10^14-primary GATE SRM on 1,508 columns (voxels): head-level pull rms 1.008, pixel-level 1.11, photopeak factor 0.917 (flat over the field of view between 0.916 and 0.919). Gammart counts first interactions; GATE counts window events; the factor 0.917 is the measured in-spot ratio. A further 2.4-4.5 % of GATE window counts fall off the spot (collimator and shield scatter) which gammart omits by design.
+
+**Image level (FINAL).** The same GATE data, reconstructed with both matrices (OSEM 8, AC, 2 mm grid), agree within about 1-3 % in contrast, resolution and ROI ratios (small Jaszczak, 200 iterations x 8 subsets):
+
+| quantity | GATE SRM / gammart SRM |
+|---|---|
+| sphere 12.7 mm contrast | 0.593 / 0.593 |
+| sphere 25.4 mm contrast | 0.830 / 0.806 |
+| rods 7.9 mm contrast | 0.596 / 0.585 |
+| rods 12.7 mm contrast | 0.785 / 0.768 |
+| triple-line NEMA FWHM, centre | 3.50 / 3.51 mm (grid limited) |
+| Derenzo V/P, 6 mm sector, 200 it | 0.21 / 0.23 |
+| noise (CoV of 6 mm blocks) | 0.181 / 0.177 |
+| absolute scale | +1.6-1.9 % for gammart |
+
+Where they differ, gammart images are less noisy because its matrix has no Monte Carlo noise; with the GATE SRM the full-TEW reconstruction becomes unstable at the edge of the field of view after about 3 iterations (edge columns with few counts), gammart less so. The clinical head (mesh50) region ratios agree to within 1 %.
+
+![Same GATE data reconstructed with the GATE and the gammart system matrix, rods, spheres and coronal planes.](img/fig_jaszczak_in_fov_primary_slices_it200.png){#fig-gv}
+
+## 4.2 Paper-2 work packages (results of 2026-10-28)
+
+*Source: `pytorch-optix/docs/paper2_plan.md`, sections "WP0 results", "WP1 and WP2 results", "Edge triangle, full system"; data in `pytorch-optix/out/wp0`, `out/wp1`, `out/wp2`.*
+
+**WP0, the GATE vs gammart spectrum mismatch: FINAL.** In the full-system 140 keV point-source run, GATE had 1.6 % more singles in total, all at 60-100 keV. Cause: (1) **room-air backscatter** in GATE's default air world (vanishes in vacuum), and (2) **Compton Doppler broadening** of the options "option4" and "Livermore", which smears scatter below the single-scatter kinematic minimum of 90.4 keV; gammart (Klein-Nishina times a form factor, no Doppler) omits it. With the Standard (no Doppler) physics in vacuum GATE agrees with gammart (ratio 0.96 +- 0.05). **The photopeak window (126-154 keV) agrees within 1 % for all four GATE variants** (1.000-1.010). Setting for WP1/WP3: vacuum world, option4 physics as the reference.
+
+![WP0: GATE / gammart singles by energy band and GATE physics variant (data: out/wp0/bands_t2.json).](img/wp0_ratios.png){#fig-wp0b width=70%}
+
+![WP0 spectra (out/wp0/spectra_t2.png).](img/wp0_spectra_t2.png){#fig-wp0-spectra}
+
+**WP1, one module, GATE vs gammart Monte Carlo: FINAL.** One module, a point-source cone, vacuum, the same readout code for both (block sum, energy-weighted centroid, 16.5 keV x sqrt(E/140) blur, window 126-154 keV). In-window counts GATE / gammart = **0.9991-1.0035 over 10 cases** (angles 0-45 degrees, three off-axis cases, two aperture sizes); statistical errors 0.05-0.5 %; per-pixel pull rms 0.95-1.19. GATE's fluorescence (K x-rays of CsI) removes 1.7 % of the in-window counts at 0 degrees, 2.0 % at 30 degrees and 16 % at 45 degrees, where the spot is at the crystal side face; **gammart does not model fluorescence yet** (about a 2 % window effect over the useful field). Free physics result: converging pixels remove the parallax (spot FWHM along the incidence plane 1.91 to 1.81 mm from 0 to 35 degrees, while parallel 2 mm pixels grow from 1.73 to 2.25 mm, +30 %).
+
+![WP1 checkpoint (out/wp1/wp1_checkpoint.png): window counts GATE / gammart and per-pixel pull rms for the ten cases.](img/wp1_checkpoint.png){#fig-wp1}
+
+*Edge triangle: small for compact sources, 6-7.5 % for extended phantoms.* In single-module beams, 27 % (35 degrees) and 91 % (45 degrees) of the window events fall into the triangle of crystal outside the outer converging pixel walls. In the full system it is 0.12-0.16 % for a point source or an 80 mm water sphere at the centre, but the WP3 phantoms (29 Oct, GATE and gammart agree) put **6.2 % (Jaszczak), 7.5 % (triple line) and 0.4 % (Derenzo)** of window events there, worst module 22 %: extended objects are seen at large angles. How to treat the triangle (response element in the matrix, or design change) is an open decision.
+
+**WP2, gammart full-system with the new detector: PROVISIONAL, prototype only.** The deterministic converging-pixel matrix agrees with Monte Carlo to about 1 % (0.4-1.1 %) on 5 modules; **the top module is 3.5 % off and unexplained**. Phantom sources and the full 73-module converging matrix are not done. The Compton-centroid kernel plus matrix predicts the Monte Carlo window map of primary photons to about 1 % in total; a further 2.3-4.4 % of window events come from photons that scattered before the crystal (the scatter model that WP4 has to supply).
+
+**WP3, full-system GATE: checkpoint passed (29 Oct).** Three phantoms in water (Jaszczak, Derenzo, triple line), annealed-minimax aperture map, vacuum world, option4 physics, fluorescence on and off. GATE / gammart in-window counts per photon: 1.002-1.003 with fluorescence off in all three phantoms; fluorescence (K escape) costs a uniform 2.0 %, as in WP1. Per-module and pixel-map pull rms 0.97-1.20; spectra agree in the photopeak to 0.3 %; no edge-ring excess (no side leak). Reconstruction with the full converging-pixel gammart matrix: Derenzo V/P within 0.003, triple-line FWHM within 0.08 mm. Open: the edge triangle (6-7.5 % of window events for extended phantoms), a 0.2-0.3 % GATE excess, one Jaszczak sphere contrast to re-check. Cost: about 19 SU charged on Expanse (production on the free preempt partition and OSPool), 6.2 GPU-h. Source: paper2_plan.md "WP3 results (2026-10-29)".
+
+**WP2b, aperture placement: PROVISIONAL** (parallel pixels, no scatter; the re-check on the converging detector is pending). Conclusion of the map-to-map study (12 mixed maps and uniform, 100 realisations, ERIS 6162111): placement of the 18/18/18/19 inventory is a **second-order choice**. The 8 mm V/P varies by +-0.04 (one SD) between random maps, more than any effect at the type level; annealing the minimax proxy gives a small, repeatable gain (V/P 7 mm -0.035, CRC +0.4 %, NRMSE -0.2 %), smaller than the gain of uniform size C; stratified placement gives no gain; index-mod-4 is an ordinary random map. Recommendation: prefer uniform if the inventory is not binding; otherwise an annealed map.
+
+![V/P of the 8 mm rods for the aperture-placement maps (table in paper2_plan.md, WP2b map variation).](img/wp2b_maps.png){#fig-wp2b width=75%}
+
+# 5. Reconstructions: the best image of every phantom
+
+*Source: `brain_phantom_recon/*` (osem_reference_2026-10-15, unscattered_update_2026-10-16, resolution_2026-10-20, gammart_vs_gate_srm_2026-10-22), reports `2026-10_phantom_recon/osem_reference.md`, `error_budget_plan.md`, `2026-10_phantom_recon/quarto/error_budget.qmd`.*
+
+All: GATE data (unless stated), 15 mCi Tc-99m, 15 min, unscattered main-window counts (`in_fov_primary`) with the 2 mm GATE system matrix, uniform start, no support threshold, no scatter correction, **OSEM with 8 module subsets with attenuation correction in the model** (gammart factors per phantom). "Updates" = iterations x 8 subsets. Post-filter: Gaussian, stated per phantom.
+
+| phantom | best reconstruction | corrections | SRM | the number to remember |
+|---|---|---|---|---|
+| small Jaszczak (80.4 M counts) | OSEM 8, 8000 updates, 8 mm filter (the citable reference) | AC; no scatter; no support | 2 mm GATE | recovery 0.999-1.005 for any filter from 80 updates; 7.9 mm rod contrast 0.29 (8 mm filter) vs 0.67 (none); noise 0.10 vs 1.07 |
+| small Jaszczak, comparison | OSEM 8, 1600 updates (200 it), no filter | AC | 2 mm GATE vs 2 mm gammart | contrast within 1-4 %, same noise |
+| ACR Jaszczak (rim-streak study only; noise-free, consistent data) | MLEM, 200 it | none | GATE brain_merged | no quantitative best-image study exists for it: the study is about streaks (a matrix property; a small start value outside the body removes the shell part) |
+| XCAT head (mesh50 clinical) | OSEM 8, 100 it | AC | gammart (stable) and GATE | grey/white ratio 2.4 (truth 4.0); recovers about 60 % of contrast at this count level, both SRMs |
+| XCAT brain perfusion (design study) | OSEM 8 at matched noise, iteration 8 | none; same SRM for data and reconstruction | gammart, uniform design C | contrast recovery 0.785, NRMSE 0.442 (noise 20 %) |
+| triple line 75 mm, water and air | OSEM 8, 3200-8000 updates, no filter | AC | 2 mm GATE | fitted line FWHM falls to about 1 mm (the voxel); NEMA 3.5 mm |
+| triple line 50 mm (InSPira style), water and air | same | AC | 2 mm GATE | off-axis lines collapse more slowly than the 75 mm ones |
+| Derenzo 3-8 mm, water and air | OSEM 8, 8000 updates, 4 mm post-filter | AC | 2 mm GATE | V/P at 4 mm filter: 5 mm 0.62, 6 mm 0.22, 7 mm 0.07, 8 mm 0.04 (no filter: 0.36, 0.08, 0.02, 0.01) |
+
+The XCAT-perfusion row comes from the aperture scorecard and is a like-for-like design comparison, not an absolute image quality.
+
+![Small Jaszczak, rod plane: OSEM 8, 8 mm filter; with and without attenuation correction, over the iterations (hot spots outside are low-sensitivity FOV-edge voxels).](img/slices_rods_osem8_f8.png){#fig-jasz-rods}
+
+![Small Jaszczak, spheres plane, same settings.](img/slices_spheres_osem8_f8.png){#fig-jasz-sph}
+
+![Triple line 75 mm in water: the lines as they form.](img/lines_zoom_triple_line_75_water_f0.png){#fig-lines}
+
+![Derenzo in water: OSEM 8, AC, 8000 updates; clockwise from top right the 3, 4, 5, 6, 7, 8 mm sectors.](img/derenzo_images_derenzo_brain_water_osem8_ac.png){#fig-derenzo}
+
+![Derenzo in water: profiles along a row, 4 mm post-filter, over the updates.](img/derenzo_rows_derenzo_brain_water_osem8_ac_f4.png){#fig-derenzo-rows}
+
+![Clinical XCAT head (mesh50) from GATE data, 100 iterations, with the GATE (middle) and gammart (bottom) matrix, scaled to the truth by least squares. The clinical count level limits the image; the dark GATE row is caused by the least-squares scaling with a few very bright edge voxels of the GATE matrix (caveat in the comparison README), the region ratios of the two agree to 1 %.](img/mesh50_slices.png){#fig-mesh50}
+
+![XCAT perfusion in the design scorecard: one noisy realisation per design at matched noise (labels changed to sizes A-D).](img/scorecard_images.png){#fig-scorecard-img}
+
+**Why the images look the way they do (error budget).** The error-budget study (`error_budget.qmd`, `error_budget_plan.md`) adds one factor at a time for the 7.9 mm rods at the reference setting (8000 updates, 8 mm filter): truth 1.00 -> 0.89 after the 2 mm grid -> 0.32 after the 8 mm filter -> 0.30 noise-free reconstruction -> 0.29 +- 0.01 on the GATE data. At the reference setting **the post-filter is the budget**: everything after it costs at most 0.04. Unfiltered, the system-plus-algorithm step is the loss (rods 0.89 -> 0.70 at 8000 updates) and counting noise dominates the image error (NRMSE 0.25 noise-free vs 1.26 with noise). Discretisation, attenuation inside a voxel and noise-induced bias are small (at most 0.03 contrast). Model mismatch is small but visible: chi-square per pixel 1.18, module totals drift by ring (+0.2 % top to -0.25 % bottom). Unexpected: noise-free reconstructions do not settle (voxel CoV keeps growing). **What limits the image now:** the combination of counts (80 M for 15 min), the system's intrinsic resolution and the need for a post-filter to control noise; scatter and the real detector response are not in these numbers.
+
+# 6. Resolution: why 3.5 mm on the line and 6 mm on the Derenzo?
+
+## 6.1 The question
+
+The PI asked: "the triple line gives NEMA FWHM 3.5 mm but the Derenzo resolves only 6 mm rods (5 mm partly): why, and which number describes the system?"
+
+*Source: `pytorch-optix/docs/resolution_consistency_plan.md` (table and working explanation), `qmirt-gate-10-sim/dev/python/ideal_lir.py` and `ideal_lir/`, `brain_phantom_recon/resolution_2026-10-20/analysis/derenzo_model.json`, `osem_reference_2026-10-15/resolution/sphere_fwhm.json`, `gammart_vs_gate_srm_2026-10-22/tables_resolution.md`.*
+
+## 6.2 What was measured
+
+Same reconstruction everywhere (GATE data, GATE 2 mm SRM, OSEM 8 subsets, AC). "it" = iterations (x 8 for updates).
+
+| measure | 200 it | 1000 it | note |
+|---|---|---|---|
+| triple line, NEMA FWHM (centre) | 3.50 | 3.50 | constant from 50 to 1000 it: the 2 mm grid floor |
+| triple line, 2D Gaussian fit (centre) | 0.9-1.4 | 0.5-0.95 | an isolated hot line, OSEM sharpens toward the true 1 mm |
+| Derenzo, equivalent Gaussian FWHM (4/5/6/7 mm sectors) | 7.0 / 6.4 / 5.6 / 5.0 | 5.9 / 5.3 / 4.3 / - | depends on rod size: not one PSF |
+| Jaszczak spheres, fitted FWHM | 8.0-10.4 | 5.3-6.7 (1600 it) | `osem_reference_2026-10-15/resolution` |
+| ideal (system-only) local impulse response, half-max width, alpha = 1e-3 lambda_max, **noiseless gammart matrix** | 10.9 (r = 0), 9.3 (r = 60), 6.7 (r = 95 mm) | | depends on alpha; not an absolute resolution. The GATE-matrix values quoted earlier (6.7 / 6.1 / 5.2 mm) are narrowed by its Monte Carlo noise (1-6 counts per entry) and withdrawn |
+| classic projection resolution, best single module (r = 48 mm) | 7.6-8.4 | | with Paix penetration |
+| classic projection resolution, count-weighted (r = 48 mm) | 12.5-14.0 | | |
+
+![The seven numbers on one axis: they measure different things.](img/resolution_measures.png){#fig-measures}
+
+## 6.3 The working explanation (provisional)
+
+1. **The line measures the core.** NEMA FWHM of a line is the width of an isolated feature on an empty background. The 3.5 mm does not even measure the core: it is the fixed 2 mm grid floor (identical at 50 and 1000 iterations, identical for GATE and gammart matrices, and after an 8 mm post-filter the width is just the filter's, 8.2-8.3 mm). The 2D Gaussian fit follows the true line down to about 1 mm because OSEM, with its positivity constraint and zero background, sharpens isolated hot features beyond the linear response.
+2. **The Derenzo and the sphere edges see the whole response.** A rod has neighbours at a distance of its own diameter; each rod receives the broad base of the response of its neighbours, and the valleys fill. The effective blur therefore depends on the rod size and on the iteration count (equivalent FWHM 7.0 to 5.0 mm across 4-7 mm sectors at 200 iterations).
+3. **The reconstruction beats a single projection** (best single-module projection resolution 7.6-8.4 mm, count-weighted 12.5-14.0 mm at r = 48 mm) because the system matrix models the blur and many views are combined (resolution recovery).
+
+![Ideal point response of the system alone (current mix, parallel pixels; regularised minimum norm, alpha = 1e-3 lambda_max; mean over 12 directions). The GATE matrix gives a narrow spike because its entries are Monte Carlo counts of 1-6; the noiseless gammart matrix gives a wider, smooth response; Poisson-resampling gammart to the GATE counts reproduces the spike. Source: 2026-10-28_analytic_resolution/lir.](img/ideal_lir_profile.png){#fig-ideal-lir}
+
+![Illustration of the idea with *invented* widths: a point response with a sharp core on a broad base reproduces both behaviours, a thin line reads as the core, rods of the size of the gap lose valley depth.](img/core_base_schematic.png){#fig-core-base}
+
+![Model: the true Derenzo channels blurred by a Gaussian, valley/peak against blur FWHM; this is how a V/P is converted to an "equivalent Gaussian FWHM".](img/derenzo_model.png){#fig-derenzo-model}
+
+![Equivalent FWHM of every Derenzo sector against the fitted FWHM of the 75 mm water lines at the same updates.](img/derenzo_equivalent_fwhm_derenzo_brain_water_f0.png){#fig-equivalent}
+
+## 6.4 Which number for which purpose
+
+| use case | number to quote | provisional? |
+|---|---|---|
+| **The system's resolution for extended activity** (clinical-like objects, comparison between systems) | **about 5-6 mm**: 6 mm rods separate (V/P 0.08 unfiltered, 0.22 with 4 mm filter at 8000 updates), 5 mm partly (0.36 / 0.62), 4 mm barely; equivalent Gaussian 4.3-7.0 mm depending on sector and iterations | yes: depends on iterations, noise and filter; quote them with the number |
+| System-only, object independent | none as an absolute number: the ideal local impulse response depends on the regularisation (noiseless matrix, alpha = 1e-3 lambda_max: 6.7-10.9 mm, r = 95 to 0 mm); use it to compare designs | - |
+| Cold spheres, edges | 5.3-6.7 mm at 1600 iterations (8-10 mm at 200 it) | yes |
+| A hot line source (NEMA) | **do not quote as resolution**: 3.5 mm is the grid floor, the Gaussian-fit width 0.5-1.4 mm shows OSEM sharpening; quote it only as a point-like feature on an empty background | no |
+| What a projection from one module gives | 7.6-8.4 mm best module, 12.5-14.0 mm count-weighted, at r = 48 mm | checked by Phase 0 (6.5) |
+
+## 6.5 What is not done
+
+> **The chain formula -> system matrix -> local impulse response -> phantom is planned, not done, and the explanation above is provisional.**
+
+- **Phase 0:** *done*. Phase 0 done 28 Oct (gammart, 2e10 photons/design, 7 points): sensitivity 0.975-0.989 of the formula, aperture spot width within 1 %, f = 27.0-27.4 mm; the quadrature R is 15-30 % high at the centre and misses parallax off-centre (parallel pixels). Details: 2026-10-28_analytic_resolution.
+- **Phase 1:** measured local impulse response inside the Derenzo reconstruction: perturb the projections by a small point response at 15 points (12 rod centres and valleys, 2 in the cold background, 1 at the centre) in 4 batched plus 2 check reconstructions, saved at 20 to 1000 iterations: *not run*.
+- **Phase 2:** predict the Derenzo V/P and the sphere profile by convolving the truth with the measured response (success: within 2 SD or 0.05); compare with the linearised MLEM theory and an optional quadratic-penalty reconstruction: *not run*.
+- **Phase 3:** the triple line on the 1 mm grid (a 1 mm SRM exists), where the NEMA FWHM should fall below 3.5 mm, and the local impulse response at the line position in air and in water: *not run*.
+
+Possible output: a section of paper 2, or a short paper "Resolution of a stationary 73-pinhole brain SPECT: from pinhole formulas to reconstructed images". It should stay out of paper 1.
+
+# 7. Aperture design and the neural surrogate
+
+*Source: `pytorch-optix/docs/design_surrogate/` (`article.qmd`, `slides.qmd`, `_variables.yml`, `_tables/`, `why_uniform_wins.md`), `docs/module_surrogate.md`, `docs/paper2_plan.md` (WP2b), scorecard data `qmirt-gate-10-sim/dev/python/design_scorecard/r100_2026-10-26` (ERIS 6138007). Pinhole sizes are called A < B < C < D (confidentiality).*
+
+## 7.1 The design question
+
+Which pinhole size should each head have, and where should each head sit and point? Today four sizes alternate by head index. Two things make this difficult: (1) the exact system matrix of a design takes about 20 minutes to compute (one full ray-tracing run), too slow to try thousands of designs; (2) the quality of a design only becomes clear after a reconstruction. So we built a fast stand-in for the physics that can also tell us *which way to move*.
+
+## 7.2 The neural surrogate in plain language
+
+- **What it is.** A *surrogate* is a fast learned copy of an exact but slow calculation. The exact calculation here is: given a point source at some position and a pinhole of some width, how many counts land on each of the 625 pixels of one module (and how does that change if the source or the pinhole moves a little)? The surrogate is a neural network that has learned to answer that question.
+- **Why one module is enough.** All 73 modules are identical up to where they sit and how they point; the shield and the neighbouring modules change no entry of a module's response (checked to 2 x 10^-8). So we only learn *one* module in its own frame, and any design is a set of lookups with each head's pose and width. The square detector adds a symmetry that further shrinks what must be learned (only a wedge of directions).
+- **How it was trained.** Exact labels from gammart: 196,608 source positions and 48 pinhole widths (34 minutes on the 3080 Ti), including the derivatives of the response with respect to source position, so the network is trained on values *and* slopes (Sobolev training). The network has 584,840 parameters and took 1.8 hours to train. Fixed physics layers (folding, window at the analytic spot centre, normalisation) take care of what physics already knows; the network learns the correction.
+- **How accurate.** On held-out widths: window values 0.20 % median per pixel (0.55 % at the 90th percentile), derivatives 0.75 %, module totals 0.14 %. Whole designs: the objective is within 4.8 x 10^-4 and the sensitivity within 1.3 x 10^-4 of the exact value; the surrogate is about 600 times faster (about 2 s instead of about 20 min). Only sources beyond the acceptance edge stay at a few percent.
+- **Why gradients matter.** Because the surrogate is a smooth formula, the computer can compute *how the resolution would change if this pinhole were a little wider or this head moved a millimetre* for all 73 heads at once, and follow that slope (gradient descent), instead of trying designs at random. Analogy: a chess player who has seen 200,000 positions answers instantly what an engine needs minutes to calculate; and because the answer is a smooth formula we can also ask "which move improves it fastest".
+- **What the optimiser found** (proxy objective: resolution per detected photon at 200 test points in the brain, sensitivity at least 0.95 times the current): exact width ratio 0.937 (6.3 % gain) with continuous per-head widths; the same with poses added and patient clearance respected (0.937, no extra gain); 0.893 (10.7 %) if the heads could move freely, which is not physically reachable (modules can only move outward). The widths settle close to the uniform size-C answer with a spread by position. The proxy ranking is checked by exact reconstructions (next section).
+
+![Concept of the surrogate: teach, learn, use.](img/surrogate_concept.png){#fig-surrogate}
+
+![Training curves and accuracy on held-out widths (from the surrogate study).](img/training.png){#fig-training}
+
+![Accuracy of the surrogate against exact ray tracing, by source distance.](img/accuracy.png){#fig-accuracy width=70%}
+
+## 7.3 The reconstruction scorecard
+
+Eight designs, each with its exact system matrix, fixed activity x time (the counts follow the sensitivity), **100 noise realisations**, OSEM 8 subsets, iterations 1-32, compared **at matched noise**: Derenzo at 2.5 % rod-peak CoV, XCAT perfusion at 20 % voxel CoV. Same matrix for data and reconstruction (an "inverse crime"), no attenuation, scatter or detector response: like-for-like, not absolute.
+
+![Derenzo valley/peak against noise for the 7 designs.](img/scorecard_derenzo.png){#fig-sc-derenzo}
+
+![XCAT perfusion: contrast recovery and NRMSE against noise.](img/scorecard_xcat.png){#fig-sc-xcat}
+
+| design | sensitivity | V/P 6 mm | V/P 7 mm | V/P 8 mm | CRC 920:100 | NRMSE |
+|---|---|---|---|---|---|---|
+| all A (smallest) | 0.31 x | 1.12 | 0.97 | 0.72 | 0.769 | 0.468 |
+| all B | 0.50 x | 1.09 | 0.88 | 0.56 | 0.776 | 0.455 |
+| **all C** | 0.96 x | 1.06 | 0.81 | **0.41** | 0.785 | 0.442 |
+| all D (largest) | 2.25 x | 1.07 | 0.87 | 0.44 | 0.785 | 0.436 |
+| current (index mod 4) | 1.00 x | 1.08 | 0.87 | 0.48 | 0.776 | 0.448 |
+| rings of B/C/D | 1.21 x | 1.05 | 0.85 | 0.43 | 0.782 | 0.443 |
+| best assignment (C, one B) | 0.96 x | 1.05 | 0.82 | 0.43 | 0.785 | 0.442 |
+| continuous widths (surrogate optimum) | 0.95 x | 1.06 | 0.79 | 0.38 | 0.785 | 0.443 |
+
+Lower V/P and NRMSE are better, higher CRC is better; the statistical error of a V/P is about +-0.02. What the scorecard says:
+
+1. **Small pinholes lose** at a fixed acquisition: 8 mm V/P 0.72 (A) vs 0.41 (C).
+2. **Uniform C beats the current mix:** 8 mm 0.41 vs 0.48, 7 mm 0.81 vs 0.87; XCAT CRC 0.785 vs 0.776, NRMSE 0.442 vs 0.448.
+3. **No mixed design beats uniform** (rings 0.85 on 7 mm; the best assignment equals uniform within noise).
+4. **Continuous widths** gain a little more (8 mm 0.38; 7 mm 0.79); not visible in XCAT.
+5. **C vs D is task dependent:** D is worse on 7 mm rods (0.87) but has the lowest XCAT NRMSE (0.436).
+6. **Limits:** rods of 6 mm or smaller are not resolved by any design; the XCAT metrics span only CRC 0.77-0.79 and NRMSE 0.436-0.468.
+
+![One noisy realisation per design at matched noise (labels changed to sizes A-D).](img/scorecard_images.png){#fig-sc-images}
+
+## 7.4 Why uniform wins (in plain terms)
+
+*Source: `design_surrogate/why_uniform_wins.md`.*
+
+- **Information adds across heads.** The total information about the image is the sum of the information each head delivers, $F=\sum_h F_h(\text{aperture}_h)$.
+- **At one spatial frequency a head contributes roughly its sensitivity times the squared transfer of its blur**, $s_h|{\rm MTF}_h(f)|^2$. A big pinhole brings many counts but washes out fine detail; a small pinhole keeps the detail but brings few counts.
+- **So every frequency band has a best size, and it is the same on every head** (unless the geometry of the head differs). The information of a mixed design lies between those of the pure designs and can never exceed the best pure design at any single frequency. A scorecard that probes one band (7-8 mm rods at matched noise) therefore rewards one size.
+- **When mixing could win:** only objectives that need several frequencies at once (worst case over 4, 6, 8 mm lesions; log-det; coded apertures with MTF zeros). Knife-edge pinholes have smooth, nearly Gaussian MTFs without zeros, so there is nothing to fill.
+- **Why continuous widths still gain:** the heads differ in distance and angle to the field of view, so the best size differs per head: per-head tuning, not "coarse plus fine".
+- **Caveats that may bias toward large or uniform apertures:** the inverse crime (perfect model, flatters bright blurry data); no design resolves rods of 6 mm or smaller, so the high-frequency band where small apertures matter is not measured; a different count regime moves the best size (the optimum stays uniform).
+- **Not run (cheap confirmation):** the summed information spectrum of each design at several frequencies, and a multi-scale objective where a mixed design should win if it ever does.
+
+![Illustration (invented widths and sensitivities): each size is best at a different spatial frequency, a mix lies between.](img/info_adds.png){#fig-info}
+
+# 8. Additional sections
+
+## 8.1 Comparison with published and commercial systems
+
+The repository holds **no like-for-like numbers** for this comparison. The literature review (`docs/literature_review_2026-10.md`) gives only one number for a related system: the Sabet lab's dynamic brain SPECT grant (NIH R01EB034785) aims at about 4 mm FWHM at the sensitivity of a dual-head clinical collimator, or 8 times that sensitivity at 7 mm (abstract only; no readout details). Paper 2's WP6 plans a comparison at identical simulation conditions (same phantoms, activity, scan time, reconstruction, matched noise) against a clinical dual-head LEHR camera (and LEUHR), AdaptiSPECT-C and G-SPECT-I, each with its published detector, modelled in gammart. **Not run.** The sensitivity map over the field of view (cps/MBq) is part of WP5, also not done.
+
+## 8.2 Error budget: what limits the image now
+
+See the end of section 5. In short: at the reference setting the post-filter is the budget (rods 7.9 mm: 0.89 after the grid, 0.32 after the 8 mm filter, 0.29 on the data); unfiltered, system plus algorithm cost most and counting noise dominates the error; grid, voxel attenuation and noise bias are small; the model mismatch is small but visible (chi-square per pixel 1.18). Two further limits from this update: gammart omits fluorescence (about 2 % in window) and Doppler (below the window); the edge triangle is negligible in the full system (0.12-0.16 %).
+
+## 8.3 Confidence: validation status of each link
+
+![Status of each link of the chain.](img/confidence.png){#fig-confidence}
+
+## 8.4 Ongoing work, timeline and next steps
+
+![Paper-2 work packages in order (the plan fixes no calendar dates).](img/timeline.png){#fig-timeline}
+
+- **Done 29 Oct:** WP3 full-system GATE campaign (checkpoint passed; see section 4). Next decision: the edge triangle.
+- **Next, in order (paper2_plan.md):** finish WP2 (converging matrix of the full system; the 3.5 % top-module discrepancy; phantom sources); re-check WP2b on the converging detector; WP2c energy window by simulation; WP3 anchor; WP4 scatter correction (TEW or a scatter model; the old GATE-SRM plus TEW divergence must be understood); WP5 sensitivity map and performance; WP6 comparison; WP7 write. If WP2b is not settled when the clusters are free, WP3 runs with the current map as a pure gammart-vs-GATE check.
+- **Resolution chain:** Phases 0-3 (section 6.5), pending the PI's go-ahead.
+- **Surrogate (paper 3):** detection-task (CHO) scoring, analytic variance and local impulse response, then GATE with scatter; several pinholes per plate, nozzle angle, aperture shape; research plan in `docs/research_plan_differentiable_design.html`.
+
+# Appendix: sources of the numbers
+
+| topic | file |
+|---|---|
+| gammart vs GATE (matrix) | `pytorch-optix/docs/engine/_variables.yml`, `engine/article.qmd` |
+| gammart vs GATE (images) | `qmirt-gate-10-sim/dev/python/brain_phantom_recon/gammart_vs_gate_srm_2026-10-22/README.md`, `tables_resolution.md` |
+| WP0, WP1, WP2, WP2b | `pytorch-optix/docs/paper2_plan.md`; data `pytorch-optix/out/wp0`, `wp1`, `wp2`, `wp2b` |
+| classic formulas | `qmirt-gate-10-sim/dev/python/brain_phantom_recon/osem_reference_2026-10-15/resolution/resolution_theory.md`, `pytorch-optix/tests/test_multi_pinhole.py` |
+| resolution measures | `pytorch-optix/docs/resolution_consistency_plan.md`, `ideal_lir/ideal_lir_stats.json`, `ideal_lir_slices.npz`, `resolution_2026-10-20/analysis/derenzo_model.json` |
+| Derenzo V/P, lines | `resolution_2026-10-20/analysis/main.json`, `boot_stats.json` (read through `2026-10_resolution_phantoms/quarto/slides_data.py`) |
+| error budget | `2026-10_phantom_recon/quarto/error_budget.qmd`, `eb_data.py` |
+| surrogate and scorecard | `pytorch-optix/docs/design_surrogate/_variables.yml`, `_tables/`, `why_uniform_wins.md`; `qmirt-gate-10-sim/dev/python/design_scorecard/r100_2026-10-26` |

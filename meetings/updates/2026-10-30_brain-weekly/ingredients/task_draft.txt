@@ -1,0 +1,32 @@
+You are drafting a written report: the weekly Brain SPECT update for a PI. You work in the folder ~/Work/RPIL/QMIRT/qmirt-gate-10-sim/dev/reports/2026-10-30_brain_weekly (your working directory).
+
+Read these in full before writing anything:
+- ingredients/brief.md (deliverable, house rules, outline, process; this governs everything);
+- ingredients/facts.md (verified numbers and their sources; open the cited source files for detail);
+- ingredients/figures.md (existing verified figures, new data figures, schematics);
+- ingredients/references_seed.md;
+- ingredients/lit_notes_meng_sabet_resolution.md;
+- ingredients/lit_notes_scatter.md;
+- ingredients/precedent_report.typ (an earlier report of this lab, for tone and typesetting ideas).
+
+Produce, in this folder:
+- references.bib;
+- scripts/make_figures.py, with figures in img/;
+- report.qmd (format typst; Quarto 1.10 via `micromamba run -n opengate quarto render report.qmd`);
+- the rendered report.pdf;
+- build.sh (figures, then render).
+
+Python for figures: `micromamba run -n raytracing env -u DISPLAY python scripts/make_figures.py`. It has numpy, scipy, matplotlib and torch (CPU only: set CUDA_VISIBLE_DEVICES="").
+
+Rules:
+- Every number comes from a file. Do not invent data or citations.
+- Only write inside this folder. No GPU jobs, no git.
+- After rendering, convert pages to PNG (`pdftoppm -r 50 report.pdf /tmp/claude-1002/weekly_pages/p`) and inspect every page image.
+  - Fix layout problems: figure sizes, legibility, overflowing tables, orphan headings, page breaks.
+  - Iterate until it reads well.
+- Keep a short ingredients/draft_log.md of what you did, any number you could not verify (left out or marked), and any citation you dropped.
+
+Finish with a summary under 300 words:
+- page count;
+- figure list;
+- unresolved items.

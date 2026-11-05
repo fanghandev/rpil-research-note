@@ -1,0 +1,107 @@
+[ledger] started pid 665472: cores 16, mem 8 GB, gpu no
+
+=== a. path length from the 8 half-planes ===
+[PASS] a region x:in y:in: residual = 0  (walls hit none; Lambda = 0)
+[PASS] a region x:in y: +: residual = 0  (walls hit ['+y']; Lambda = q*(t1 + t2)/((t1 - tau_y)*(t2 + tau_y)))
+[PASS] a region x:in y: -: residual = 0  (walls hit ['-y']; Lambda = q*(t1 + t2)/((t1 + tau_y)*(t2 - tau_y)))
+[PASS] a region x: + y:in: residual = 0  (walls hit ['+x']; Lambda = p*(t1 + t2)/((t1 - tau_x)*(t2 + tau_x)))
+[PASS] a region x: + y: +: residual = 0  (walls hit ['+x', '+y']; Lambda = Max(p/(t1 - tau_x), q/(t1 - tau_y)) + Max(p/(t2 + tau_x), q/(t2 + tau_y)))
+[PASS] a region x: + y: -: residual = 0  (walls hit ['+x', '-y']; Lambda = Max(p/(t2 + tau_x), q/(t2 - tau_y)) + Max(p/(t1 - tau_x), q/(t1 + tau_y)))
+[PASS] a region x: - y:in: residual = 0  (walls hit ['-x']; Lambda = p*(t1 + t2)/((t1 + tau_x)*(t2 - tau_x)))
+[PASS] a region x: - y: +: residual = 0  (walls hit ['+y', '-x']; Lambda = Max(p/(t1 + tau_x), q/(t1 - tau_y)) + Max(p/(t2 - tau_x), q/(t2 + tau_y)))
+[PASS] a region x: - y: -: residual = 0  (walls hit ['-x', '-y']; Lambda = Max(p/(t1 + tau_x), q/(t1 + tau_y)) + Max(p/(t2 - tau_x), q/(t2 - tau_y)))
+[PASS] a |d|/dz = 1/cos(theta), so mu*DeltaL = kappa*Lambda, kappa = mu/cos(theta): residual = 0
+[PASS] a normal incidence: Lambda = p (1/t1 + 1/t2) = 2p/t_h: residual = 0
+[PASS] a zone-I limit along a side, theta < atan(min t2) = 43.8 deg (§3.1): residual = 43.827 deg
+
+=== b. effective area ===
+[PASS] b strip: int_0^inf exp(-kappa p (U+L)) dp = 1/(kappa (U+L)): residual = 0  (sympy: 1/(kappa*(L + U)))
+[PASS] b corner, q = p s, dq = p ds: int_0^inf p exp(-kappa p Lambda(1,s)) dp = 1/(kappa Lambda)^2: residual = 0  (Lambda(p, ps) = p Lambda(1, s) for p > 0 (max is 1-homogeneous))
+[PASS] b corner case 1 (s_U <= s_L): branches of both max: residual = 0
+[PASS] b corner case 1: kappa^2 I = §3.3 formula: residual = 0
+[PASS] b corner case 2 (s_L < s_U): branches of both max: residual = 0
+[PASS] b corner case 2: kappa^2 I = §3.3 formula: residual = 0
+[PASS] b cases 1 and 2 agree at s_U = s_L (continuity): residual = 0
+[PASS] b sum over 4 edges of 1/(U+L) = (2t^2 - tau_x^2 - tau_y^2)/t (any signs): residual = 0
+[PASS] b four corners, case A: tau_x >= tau_y >= 0: kappa^2 sum I = t^2 (1-M)[3(1-m^2) - (1-M)^2]: residual = 0  (orderings ++:2, +-:2, -+:1, --:1)
+[PASS] b four corners, case B: tau_y >= tau_x >= 0: kappa^2 sum I = t^2 (1-M)[3(1-m^2) - (1-M)^2]: residual = 0  (orderings ++:1, +-:2, -+:1, --:2)
+[PASS] b case A: A_eff from the integrals == A_ours (§3.3 boxed): residual = 0
+[PASS] b case A: simplify(A_ours - A_paper) == 0 [A_paper = M&M 2020 eq. 22 as typed in crosscheck_tables.py; transcription not yet checked against the PDF]: residual = 0
+[PASS] b case B: A_eff from the integrals == A_ours (§3.3 boxed): residual = 0
+[PASS] b case B: simplify(A_ours - A_paper) == 0 [A_paper = M&M 2020 eq. 22 as typed in crosscheck_tables.py; transcription not yet checked against the PDF]: residual = 0
+[PASS] b theta = 0, t1 != t2: A_eff = w^2 + 2 w t_h/mu + 2 t_h^2/mu^2 (§3.3): residual = 0
+
+=== c. limits and expansions ===
+[PASS] c case A: A_eff(theta = 0) = w^2 + 2wt/mu + 2t^2/mu^2 (Paix): residual = 0
+[PASS] c case B: A_eff(theta = 0) = w^2 + 2wt/mu + 2t^2/mu^2 (Paix): residual = 0
+[PASS] c case A: series of A_eff to theta^2 = §3.7: residual = 0
+[PASS] c case B: series of A_eff to theta^2 = §3.7: residual = 0
+[PASS] c theta^3 coefficient (first phi-dependent order), case A: residual = 0  (-(cos(2*phi) - 2)*cos(phi)/(mu**2*t)  (> 0 for phi in [0, pi/4]))
+[PASS] c series of W_par (phi = 0, t = 1) to theta^2 = §3.7: residual = 0
+[PASS] c series of W_perp (phi = 0, t = 1) to theta^2 = §3.7: residual = 0
+[PASS] c series of W_mean (t = 1) to theta^2 = §3.7: residual = 0
+[PASS] c general t, phi: W_x ~ w + dL (t - theta^2 (t/2 + cos^2 phi / t)): residual = 0
+[PASS] c §3.7 coefficients 0.551 w + 0.379: residual = 2/mu = 0.5510, 5/mu^2 = 0.3795
+[PASS] c §3.7 width expansions within 0.002 mm at 30 deg (to the quoted 3 decimals); A: 0.668 vs exact 0.666: residual = max error 0.0022 mm (strictly > 0.002); A: 0.6684 vs 0.6662
+[PASS] c §3.7 area expansion is low at every phi (positive cubic term): residual = max rel. error -3.31e-04
+[PASS] c §3.7 quoted 'low by 0.0-0.3 % at 15 deg, 0.3 % (D) to 3.2 % (A) at 30 deg' reproduces at phi = 0: residual = 15 deg A: 0.26 %, 15 deg D: 0.03 %, 30 deg A: 3.15 %, 30 deg D: 0.32 %
+[FAIL] c same claim at phi = 45 deg (quoted range does not cover it): residual = 15 deg A: 0.34 %, 15 deg D: 0.04 %, 30 deg A: 3.88 %, 30 deg D: 0.41 %
+
+=== d. widths ===
+[PASS] d T = exp(-kappa p (U+L)) = k T_max (T_max = 1 in the opening, part a) => p_k = DeltaL_k cos(theta)/(U+L): residual = 0  (sympy: p_k = -log(k)/(kappa*(L + U)))
+[PASS] d W_x: w + p_k(near) + p_k(far) = §3.2 boxed form (t1 = t2 = t): residual = 0
+[PASS] d W_y: w + p_k(near) + p_k(far) = §3.2 boxed form (t1 = t2 = t): residual = 0
+[PASS] d theta = 0, t1 != t2: W = w + DeltaL_k t_h (AM2004 eq. 29 with t -> t_h): residual = 0
+[PASS] d diagonal, theta = 0: point-profile FWHM = sqrt2 (w + DeltaL_k t_h) = sqrt2 W: residual = 0
+[PASS] d (W_x + W_y)/2 = w + DeltaL_k cos(theta)(t - tan^2/(2t)), phi-independent: residual = 0
+[PASS] d W_par with tan(theta) = cot(theta_AM), cos(theta) = sin(theta_AM) == AM2004 eq. 22 (d -> w), term by term: residual = 0  (w + DeltaL_k*t*sin(theta_AM) + -DeltaL_k*sin(theta_AM)*cot(theta_AM)**2/t)
+[PASS] d same via theta = pi/2 - theta_AM (full substitution): residual = 0
+[PASS] d W_perp^2 - AM25^2 = DeltaL_k^2 cos^2(theta_AM) = DeltaL_k^2 sin^2(theta): the only difference: residual = 0
+[PASS] d theta = 0: W = AM2004 eq. 29: residual = 0
+[PASS] d §2 numbers at 30 deg: W_par, W_perp, AM25, sqrt2 W (A-D), to 3 decimals: residual = max |computed - quoted| = 0.00038
+[FAIL] d claim 'W_perp - AM25 <= 0.003 mm here' (§2 table, §3.6): residual = 30 deg: A 0.0063, B 0.0047, C 0.0033, D 0.0021 mm; 35 deg: A 0.0085, B 0.0063, C 0.0044, D 0.0028 mm
+
+=== e. numerics: mpmath.quad of the raw transmission, half-maximum search, model, ray trace ===
+  sym w=1.727 t1=1.296 t2=1.296 th=  3.6 ph= 311.6  A=4.4649771395 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=2.6e-26  [37 s]
+  sym w=2.421 t1=1.346 t2=1.346 th= 19.5 ph=  94.3  A=7.7173390764 rel(A)=0.0e+00 rel(W)=2.6e-26 rel(diag)=1.3e-26  [37 s]
+  sym w=1.150 t1=1.060 t2=1.060 th=  8.7 ph= 352.6  A=2.1411397898 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=2.6e-26  [37 s]
+  sym w=0.432 t1=0.855 t2=0.855 th= 40.8 ph= 242.4  A=0.2706774743 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [37 s]
+  sym w=1.435 t1=1.066 t2=1.066 th= 48.5 ph= 116.7  A=2.3094889895 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [37 s]
+  sym w=1.556 t1=1.029 t2=1.029 th= 10.6 ph= 279.0  A=3.4210736691 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [37 s]
+  sym w=1.917 t1=0.886 t2=0.886 th= 21.2 ph= 326.7  A=4.5451228367 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [37 s]
+  sym w=1.899 t1=1.819 t2=1.819 th=  0.7 ph= 228.5  A=6.0115575015 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=3.9e-26  [37 s]
+  sym w=2.761 t1=0.689 t2=0.689 th= 20.9 ph=  95.3  A=8.4905775974 rel(A)=0.0e+00 rel(W)=2.6e-26 rel(diag)=0.0e+00  [37 s]
+  sym w=0.765 t1=0.607 t2=0.607 th=  3.5 ph= 253.2  A=0.8948889604 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [37 s]
+  sym w=1.546 t1=0.516 t2=0.516 th= 12.6 ph= 331.9  A=2.8084190173 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=2.6e-26  [37 s]
+  sym w=1.849 t1=1.846 t2=1.846 th=  8.8 ph=  84.6  A=5.7712499561 rel(A)=0.0e+00 rel(W)=2.6e-26 rel(diag)=2.6e-26  [37 s]
+  sym w=2.266 t1=1.886 t2=1.886 th= 63.7 ph=  25.9  A=5.5771135815 rel(A)=1.3e-26 rel(W)=2.6e-26 rel(diag)=2.6e-26  [37 s]
+  sym w=0.491 t1=1.094 t2=1.094 th= 13.4 ph=  96.9  A=0.6837633175 rel(A)=2.6e-26 rel(W)=2.6e-26 rel(diag)=2.6e-26  [37 s]
+  sym w=1.080 t1=1.758 t2=1.758 th= 27.5 ph= 213.3  A=2.3809074389 rel(A)=2.6e-26 rel(W)=1.3e-26 rel(diag)=1.3e-26  [37 s]
+  sym w=2.533 t1=1.234 t2=1.234 th= 34.1 ph=  72.5  A=7.7333175865 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=2.6e-26  [37 s]
+  sym w=0.556 t1=1.000 t2=1.000 th=  0.0 ph=   0.0  A=0.7672528560 rel(A)=1.3e-26 rel(W)=2.6e-26 rel(diag)=2.6e-26  [54 s]
+  sym w=1.215 t1=1.000 t2=1.000 th= 30.0 ph=   0.0  A=2.0272099664 rel(A)=2.6e-26 rel(W)=0.0e+00 rel(diag)=2.6e-26  [65 s]
+  sym w=0.797 t1=1.000 t2=1.000 th= 30.0 ph=  45.0  A=1.0245242971 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=2.6e-26  [65 s]
+  sym w=2.000 t1=0.800 t2=0.800 th= 38.4 ph=   0.0  A=4.3533002989 rel(A)=2.6e-26 rel(W)=0.0e+00 rel(diag)=0.0e+00  [65 s]
+  gen w=0.944 t1=1.899 t2=1.724 th=  9.8 ph= 232.5  A=2.2879011610 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=1.3e-26  [87 s]
+  gen w=2.877 t1=1.525 t2=1.738 th= 12.8 ph= 169.5  A=11.1368310020 rel(A)=2.6e-26 rel(W)=2.6e-26 rel(diag)=0.0e+00  [87 s]
+  gen w=2.506 t1=0.467 t2=1.736 th=  9.8 ph= 252.8  A=7.3363366805 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [87 s]
+  gen w=2.447 t1=1.950 t2=1.843 th= 36.7 ph= 130.0  A=8.1637117739 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [87 s]
+  gen w=2.173 t1=1.006 t2=0.700 th=  3.6 ph=  24.2  A=5.8083093936 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=0.0e+00  [87 s]
+  gen w=2.265 t1=1.060 t2=1.609 th= 25.5 ph= 321.7  A=6.6403555662 rel(A)=2.6e-26 rel(W)=0.0e+00 rel(diag)=1.3e-26  [87 s]
+  gen w=0.872 t1=1.191 t2=1.987 th= 47.3 ph= 326.6  A=1.2019482919 rel(A)=2.6e-26 rel(W)=0.0e+00 rel(diag)=0.0e+00  [87 s]
+  gen w=2.861 t1=0.825 t2=0.693 th=  1.8 ph= 122.2  A=9.4575540507 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=2.6e-26  [87 s]
+  gen w=1.090 t1=1.996 t2=1.933 th= 14.2 ph= 338.6  A=2.8579631583 rel(A)=2.6e-26 rel(W)=0.0e+00 rel(diag)=0.0e+00  [87 s]
+  gen w=0.560 t1=0.640 t2=0.678 th=  1.3 ph=  17.3  A=0.5824088675 rel(A)=0.0e+00 rel(W)=0.0e+00 rel(diag)=1.3e-26  [87 s]
+[PASS] e area, boxed form vs mpmath.quad of raw T, 20 points t1 = t2 (tol 1e-10): residual = 2.58e-26
+[PASS] e W_x, W_y boxed vs numeric half-maximum, 20 points: residual = 2.58e-26
+[PASS] e diagonal FWHM from Lambda = p[max U + max L] vs numeric half-maximum, t1 = t2: residual = 3.88e-26
+[PASS] e area, general-slope case formulas vs mpmath.quad, 10 points t1 != t2: residual = 2.58e-26
+[PASS] e W_x, W_y general (§3.2 bracket) vs half-maximum, 10 points t1 != t2: residual = 2.58e-26
+[PASS] e diagonals vs half-maximum, t1 != t2: residual = 2.58e-26
+[PASS] e square_pinhole_model.area_eff_square / fwhm_sides_square (float64) vs closed forms: residual = area 2.2e-16, widths 2.2e-16
+[PASS] e raytrace_results.json model fields == closed forms (general t1, t2): residual = area 2.2e-16, widths 1.1e-16
+[PASS] e exact CSG trace vs closed forms, 34 cases: A_eff (tol 1e-3, trace grid/finite b): residual = 8.3e-04
+[PASS] e exact CSG trace vs closed forms: side FWHMs (tol 5e-4): residual = 1.2e-04
+[PASS] e exact CSG trace vs closed forms: both diagonals incl. oblique (tol 1.5 x the trace's own diag+/diag- asymmetry at theta = 0 = 1.5e-03): residual = 1.1e-03
+
+62/64 checks passed, 2 failed  (101 s)

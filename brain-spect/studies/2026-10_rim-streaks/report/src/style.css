@@ -1,0 +1,80 @@
+/* Plain report style: white page, one text colour, a sidebar of contents. */
+:root {
+  --ink: #1a1a1a;
+  --quiet: #5a5a5a;
+  --rule: #d9d9d9;
+  --tint: #f4f4f4;
+  --link: #1c5cab;
+}
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: #ffffff;
+  color: var(--ink);
+  font: 16px/1.6 "Source Serif 4", Georgia, "Times New Roman", serif;
+}
+header#title-block-header, main, body > section, body > p, body > table, body > figure,
+body > ul, body > ol, body > h2, body > h3 { max-width: 860px; }
+body { padding: 32px 32px 96px 340px; }
+@media (max-width: 1100px) { body { padding: 24px 16px 64px; } }
+
+#title-block-header { margin-bottom: 32px; border-bottom: 1px solid var(--rule); padding-bottom: 16px; }
+#title-block-header .title { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+#title-block-header .subtitle { color: var(--quiet); margin: 0 0 8px; font-size: 1.1rem; }
+#title-block-header .author, #title-block-header .date { color: var(--quiet); margin: 0; display: inline; }
+#title-block-header .date::before { content: " · "; }
+
+nav#TOC {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 290px; overflow-y: auto;
+  padding: 24px 16px 24px 24px; border-right: 1px solid var(--rule); background: #ffffff;
+  font: 14px/1.4 "IBM Plex Sans", Arial, sans-serif;
+}
+@media (max-width: 1100px) { nav#TOC { position: static; width: auto; border: 1px solid var(--rule); margin-bottom: 24px; } }
+nav#TOC ul { list-style: none; padding-left: 12px; margin: 4px 0; }
+nav#TOC > ul { padding-left: 0; }
+nav#TOC a { color: var(--ink); text-decoration: none; display: block; padding: 2px 6px; border-radius: 4px; }
+nav#TOC a:hover { background: var(--tint); }
+nav#TOC a.active { font-weight: 600; background: var(--tint); }
+.toc-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.toc-tools button, .toc-tools a {
+  font: 13px "IBM Plex Sans", Arial, sans-serif; color: var(--ink); background: #ffffff;
+  border: 1px solid var(--rule); border-radius: 4px; padding: 4px 8px; cursor: pointer; text-decoration: none;
+}
+.toc-tools button:hover, .toc-tools a:hover { background: var(--tint); }
+
+h1, h2, h3 { font-family: "Source Serif 4", Georgia, serif; line-height: 1.25; }
+section > h1 { font-size: 1.55rem; margin-top: 48px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
+section > h2 { font-size: 1.2rem; margin-top: 32px; }
+h1.collapsible, h2.collapsible { cursor: pointer; }
+h1.collapsible::before, h2.collapsible::before {
+  content: "▾"; display: inline-block; width: 1.1em; color: var(--quiet); transition: transform 0.15s;
+}
+section.collapsed > h1::before, section.collapsed > h2::before { transform: rotate(-90deg); }
+section.collapsed > :not(h1):not(h2) { display: none; }
+
+a { color: var(--link); }
+code { font-size: 0.9em; background: var(--tint); padding: 1px 4px; border-radius: 3px; }
+
+table { border-collapse: collapse; width: 100%; margin: 16px 0; font: 14px/1.45 "IBM Plex Sans", Arial, sans-serif; }
+th, td { border: 1px solid var(--rule); padding: 6px 8px; vertical-align: top; text-align: left; }
+th { background: var(--tint); cursor: pointer; user-select: none; white-space: nowrap; }
+th.sorted-asc::after { content: " ▲"; color: var(--quiet); }
+th.sorted-desc::after { content: " ▼"; color: var(--quiet); }
+
+figure { margin: 24px 0; text-align: center; }
+figure img { max-width: 100%; height: auto; cursor: zoom-in; border: 1px solid var(--rule); }
+figcaption { font: 13.5px/1.45 "IBM Plex Sans", Arial, sans-serif; color: var(--quiet); text-align: left; margin-top: 8px; }
+math[display="block"] { margin: 16px 0; overflow-x: auto; }
+
+#lightbox {
+  position: fixed; inset: 0; background: rgba(255, 255, 255, 0.97); display: none;
+  align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; padding: 24px;
+}
+#lightbox.open { display: flex; }
+#lightbox img { max-width: 100%; max-height: 100%; }
+
+@media print {
+  nav#TOC, .toc-tools, #lightbox { display: none !important; }
+  body { padding: 0; }
+  section.collapsed > :not(h1):not(h2) { display: block; }
+}
